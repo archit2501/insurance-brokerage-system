@@ -1,0 +1,105 @@
+import { db } from '@/db';
+import { insurers } from '@/db/schema';
+
+async function main() {
+    const sampleInsurers = [
+        {
+            companyName: 'Leadway Assurance Company Limited',
+            shortName: 'Leadway',
+            licenseNumber: 'INS-001-2020',
+            licenseExpiry: '2030-12-31',
+            address: '121 Funsho Williams Avenue, Surulere',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            website: 'https://www.leadway.com',
+            acceptedLobs: JSON.stringify(['Motor Insurance', 'Fire & Special Perils', 'General Accident', 'Marine Insurance', 'Engineering', 'Bonds & Guarantees', 'Life Assurance', 'Health Insurance']),
+            specialLobs: JSON.stringify(['Aviation', 'Oil & Gas', 'Energy']),
+            status: 'active',
+            createdBy: 1,
+            updatedBy: 1,
+            createdAt: new Date('2024-01-15').toISOString(),
+            updatedAt: new Date('2024-01-15').toISOString(),
+        },
+        {
+            companyName: 'AIICO Insurance Plc',
+            shortName: 'AIICO',
+            licenseNumber: 'INS-002-2020',
+            licenseExpiry: '2030-12-31',
+            address: 'AIICO Plaza, Plot PC 12, Afribank Street, Victoria Island',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            website: 'https://www.aiicoplc.com',
+            acceptedLobs: JSON.stringify(['Motor Insurance', 'Fire & Special Perils', 'General Accident', 'Marine Insurance', 'Engineering', 'Bonds & Guarantees', 'Life Assurance', 'Health Insurance']),
+            specialLobs: JSON.stringify(['Aviation', 'Pension', 'Credit Guarantee']),
+            status: 'active',
+            createdBy: 1,
+            updatedBy: 1,
+            createdAt: new Date('2024-01-20').toISOString(),
+            updatedAt: new Date('2024-01-20').toISOString(),
+        },
+        {
+            companyName: 'AXA Mansard Insurance Plc',
+            shortName: 'AXA Mansard',
+            licenseNumber: 'INS-003-2020',
+            licenseExpiry: '2030-12-31',
+            address: 'Churchgate Tower 1, 30 Afribank Street, Victoria Island',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            website: 'https://www.axamansard.com',
+            acceptedLobs: JSON.stringify(['Motor Insurance', 'Fire & Special Perils', 'General Accident', 'Marine Insurance', 'Engineering', 'Bonds & Guarantees', 'Life Assurance', 'Health Insurance']),
+            specialLobs: JSON.stringify(['Oil & Gas', 'Energy', 'Aviation']),
+            status: 'active',
+            createdBy: 1,
+            updatedBy: 1,
+            createdAt: new Date('2024-02-05').toISOString(),
+            updatedAt: new Date('2024-02-05').toISOString(),
+        },
+        {
+            companyName: 'NSIA Insurance Limited',
+            shortName: 'NSIA',
+            licenseNumber: 'INS-004-2020',
+            licenseExpiry: '2030-12-31',
+            address: '4th Floor, NSIA House, 13A Ayo Rosiji Crescent, Ikeja',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            website: 'https://www.nsia.com.ng',
+            acceptedLobs: JSON.stringify(['Motor Insurance', 'Fire & Special Perils', 'General Accident', 'Marine Insurance', 'Engineering', 'Bonds & Guarantees', 'Life Assurance', 'Health Insurance']),
+            specialLobs: JSON.stringify(['Agriculture', 'Credit Guarantee']),
+            status: 'active',
+            createdBy: 1,
+            updatedBy: 1,
+            createdAt: new Date('2024-02-15').toISOString(),
+            updatedAt: new Date('2024-02-15').toISOString(),
+        },
+        {
+            companyName: 'Custodian Investment Plc',
+            shortName: 'Custodian',
+            licenseNumber: 'INS-005-2020',
+            licenseExpiry: '2030-12-31',
+            address: '23 Karimu Kotun Street, Victoria Island',
+            city: 'Lagos',
+            state: 'Lagos',
+            country: 'Nigeria',
+            website: 'https://www.custodianplc.com.ng',
+            acceptedLobs: JSON.stringify(['Motor Insurance', 'Fire & Special Perils', 'General Accident', 'Marine Insurance', 'Engineering', 'Bonds & Guarantees', 'Life Assurance', 'Health Insurance']),
+            specialLobs: JSON.stringify(['Oil & Gas', 'Political Risks', 'Energy']),
+            status: 'active',
+            createdBy: 1,
+            updatedBy: 1,
+            createdAt: new Date('2024-03-01').toISOString(),
+            updatedAt: new Date('2024-03-01').toISOString(),
+        },
+    ];
+
+    await db.insert(insurers).values(sampleInsurers);
+    
+    console.log('✅ Insurers seeder completed successfully');
+}
+
+main().catch((error) => {
+    console.error('❌ Seeder failed:', error);
+});
