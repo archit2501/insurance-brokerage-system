@@ -3,23 +3,6 @@
   "framework": "nextjs",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
-  "env": {
-    "TURSO_CONNECTION_URL": {
-      "description": "Turso database connection URL (libsql://...)"
-    },
-    "TURSO_AUTH_TOKEN": {
-      "description": "Turso database authentication token"
-    },
-    "BETTER_AUTH_SECRET": {
-      "description": "Secret key for Better Auth (generate with: node -e \"console.log(require('crypto').randomBytes(48).toString('base64'))\")"
-    },
-    "BETTER_AUTH_URL": {
-      "description": "Public URL of your deployed application (e.g., https://your-app.vercel.app)"
-    },
-    "NODE_ENV": {
-      "description": "Node environment (production)"
-    }
-  },
   "regions": ["iad1"],
   "functions": {
     "app/api/**/*.ts": {
