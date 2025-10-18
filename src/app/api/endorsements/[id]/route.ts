@@ -13,8 +13,9 @@ function getCurrentUser(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -25,7 +26,7 @@ export async function GET(
     // Get user info from headers (simplified for testing)
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = params.id;
+    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
@@ -135,8 +136,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -148,7 +150,7 @@ export async function PUT(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = params.id;
+    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
@@ -336,8 +338,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -349,7 +352,7 @@ export async function DELETE(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = params.id;
+    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',

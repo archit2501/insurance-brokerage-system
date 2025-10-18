@@ -46,14 +46,15 @@ function validatePassword(password: string): { valid: boolean; error?: string } 
   return { valid: true };
 }
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const user = await authenticateRequest(request);
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const id = parseInt(params.id);
+    const parsedId = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Valid ID is required' }, { status: 400 });
     }
@@ -73,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         updatedAt: users.updatedAt
       })
       .from(users)
-      .where(and(eq(users.id, id), isNull(users.deletedAt)))
+      .where(and(eq(users.id, parsedId), isNull(users.deletedAt)))
       .limit(1);
 
     if (userRecord.length === 0) {
@@ -87,7 +88,8 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const currentUser = await authenticateRequest(request);
     if (!currentUser) {
@@ -98,7 +100,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Admin role required' }, { status: 403 });
     }
 
-    const id = parseInt(params.id);
+    const id = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Valid ID is required' }, { status: 400 });
     }
@@ -264,7 +266,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const currentUser = await authenticateRequest(request);
     if (!currentUser) {
@@ -275,7 +278,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: 'Admin role required' }, { status: 403 });
     }
 
-    const id = parseInt(params.id);
+    const id = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Valid ID is required' }, { status: 400 });
     }

@@ -20,15 +20,16 @@ function getCurrentUser(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const agentId = parseInt(params.id);
+    const agentId = parseInt(id);
 
     if (isNaN(agentId)) {
       return NextResponse.json({ error: 'Valid agent ID is required' }, { status: 400 });
@@ -58,8 +59,9 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -71,7 +73,7 @@ export async function POST(
       return NextResponse.json({ error: 'Admin role required for file upload' }, { status: 403 });
     }
 
-    const agentId = parseInt(params.id);
+    const agentId = parseInt(id);
 
     if (isNaN(agentId)) {
       return NextResponse.json({ error: 'Valid agent ID is required' }, { status: 400 });

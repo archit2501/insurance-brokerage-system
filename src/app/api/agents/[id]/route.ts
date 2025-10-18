@@ -6,8 +6,9 @@ import { getCurrentUser, isValidEmail, isValidPhone } from '@/lib/validations';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -17,7 +18,7 @@ export async function GET(
       );
     }
 
-    const id = parseInt(params.id);
+    const parsedId = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
@@ -28,7 +29,7 @@ export async function GET(
     const agentResults = await db
       .select()
       .from(agents)
-      .where(eq(agents.id, id))
+      .where(eq(agents.id, parsedId))
       .limit(1);
 
     if (agentResults.length === 0) {
@@ -101,8 +102,9 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -112,7 +114,7 @@ export async function PUT(
       );
     }
 
-    const id = parseInt(params.id);
+    const parsedId = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
@@ -133,7 +135,7 @@ export async function PUT(
     const existingAgentResult = await db
       .select()
       .from(agents)
-      .where(eq(agents.id, id))
+      .where(eq(agents.id, parsedId))
       .limit(1);
 
     if (existingAgentResult.length === 0) {
@@ -302,7 +304,7 @@ export async function PUT(
     const updated = await db
       .update(agents)
       .set(updateData)
-      .where(eq(agents.id, id))
+      .where(eq(agents.id, parsedId))
       .returning();
 
     if (updated.length === 0) {
@@ -340,8 +342,9 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -351,7 +354,7 @@ export async function DELETE(
       );
     }
 
-    const id = parseInt(params.id);
+    const parsedId = parseInt(id);
     if (isNaN(id)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
@@ -362,7 +365,7 @@ export async function DELETE(
     const existingAgentResult = await db
       .select()
       .from(agents)
-      .where(eq(agents.id, id))
+      .where(eq(agents.id, parsedId))
       .limit(1);
 
     if (existingAgentResult.length === 0) {
@@ -378,7 +381,7 @@ export async function DELETE(
         status: 'inactive',
         updatedAt: new Date().toISOString()
       })
-      .where(eq(agents.id, id))
+      .where(eq(agents.id, parsedId))
       .returning();
 
     if (deleted.length === 0) {

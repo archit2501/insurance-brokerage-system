@@ -21,15 +21,16 @@ function getCurrentUser(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const agentId = parseInt(params.id);
+    const agentId = parseInt(id);
     if (isNaN(agentId)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_AGENT_ID' },
@@ -68,7 +69,7 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = getCurrentUser(request);
@@ -85,7 +86,7 @@ export async function POST(
     //   );
     // }
 
-    const agentId = parseInt(params.id);
+    const agentId = parseInt(id);
     if (isNaN(agentId)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_AGENT_ID' },

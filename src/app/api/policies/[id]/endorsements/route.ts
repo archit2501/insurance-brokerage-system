@@ -19,15 +19,16 @@ function getCurrentUser(request: NextRequest) {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const policyId = parseInt(params.id);
+    const policyId = parseInt(id);
     if (isNaN(policyId)) {
       return NextResponse.json({ error: 'Invalid policy ID', code: 'INVALID_POLICY_ID' }, { status: 400 });
     }
@@ -91,8 +92,9 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -105,7 +107,7 @@ export async function POST(
       return NextResponse.json({ error: 'Insufficient permissions', code: 'INSUFFICIENT_PERMISSIONS' }, { status: 403 });
     }
 
-    const policyId = parseInt(params.id);
+    const policyId = parseInt(id);
     if (isNaN(policyId)) {
       return NextResponse.json({ error: 'Invalid policy ID', code: 'INVALID_POLICY_ID' }, { status: 400 });
     }

@@ -7,12 +7,12 @@ import path from 'path';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; fileId: string } }
+  { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
   try {
     // No auth required - open access
     const agentId = parseInt(params.id);
-    const fileId = parseInt(params.fileId);
+    const fileId = parseInt(fileIdStr);
 
     if (isNaN(agentId)) {
       return NextResponse.json(

@@ -5,12 +5,13 @@ import { eq, and } from 'drizzle-orm';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; contactId: string } }
+  { params }: { params: Promise<{ id: string; contactId: string }> }
 ) {
   try {
     // No auth required - open access
-    const agentId = parseInt(params.id);
-    const contactId = parseInt(params.contactId);
+    const { id, contactId: contactIdStr } = await params;
+    const agentId = parseInt(id);
+    const contactId = parseInt(contactIdStr);
 
     if (isNaN(agentId)) {
       return NextResponse.json(
