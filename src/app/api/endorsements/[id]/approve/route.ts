@@ -7,6 +7,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -31,7 +32,6 @@ export async function POST(
       }, { status: 403 });
     }
 
-    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid endorsement ID is required',

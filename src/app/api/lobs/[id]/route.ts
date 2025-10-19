@@ -8,7 +8,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const id = id;
 
   if (!id || isNaN(parseInt(id))) {
     return NextResponse.json({ 
@@ -41,7 +40,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const id = id;
 
   if (!id || isNaN(parseInt(id))) {
     return NextResponse.json({ 
@@ -214,7 +212,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const id = id;
 
   if (!id || isNaN(parseInt(id))) {
     return NextResponse.json({ 

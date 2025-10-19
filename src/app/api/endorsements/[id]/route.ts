@@ -26,7 +26,6 @@ export async function GET(
     // Get user info from headers (simplified for testing)
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
@@ -150,7 +149,6 @@ export async function PUT(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
@@ -352,7 +350,6 @@ export async function DELETE(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    const id = id;
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
