@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 interface PolicyDetailPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 async function getPolicy(id: string) {
@@ -13,7 +13,7 @@ async function getPolicy(id: string) {
 }
 
 export default async function PolicyDetailPage({ params }: PolicyDetailPageProps) {
-  const { id } = params;
+  const { id } = await params;
   const policy = await getPolicy(id);
 
   if (!policy) {
