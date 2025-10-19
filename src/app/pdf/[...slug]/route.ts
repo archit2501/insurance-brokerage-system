@@ -153,9 +153,9 @@ function generatePdf({ note, client, insurer, policy }: { note: any; client: any
   });
 }
 
-export async function GET(request: NextRequest, context: { params: { slug?: string[] } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ slug?: string[] }> }) {
   try {
-    const slug = context.params.slug || [];
+    const { slug = [] } = await context.params;
     if (slug.length === 0) {
       return new NextResponse("Not Found", { status: 404 });
     }
