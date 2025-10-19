@@ -464,3 +464,27 @@ export const verification = sqliteTable("verification", {
     () => new Date(),
   ),
 });
+
+// Centralized Sequences table for entity numbering
+export const centralizedSequences = sqliteTable('centralized_sequences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  scope: text('scope').notNull(), // 'CLIENT', 'BANK', 'INSURER', 'AGENT', 'POLICY', etc.
+  year: integer('year').notNull(),
+  lastSeq: integer('last_seq').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  uniqueScopeYear: index('unique_scope_year').on(table.scope, table.year),
+}));
+
+// Client Sequences table for client-specific numbering
+export const clientSequences = sqliteTable('client_sequences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  year: integer('year').notNull(),
+  type: text('type').notNull(), // Type code like 'CL', 'POL', etc.
+  lastSeq: integer('last_seq').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  uniqueYearType: index('unique_year_type').on(table.year, table.type),
+}));

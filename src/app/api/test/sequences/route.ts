@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { sequences } from '@/db/schema';
+import { centralizedSequences as sequences } from '@/db/schema';
 
 export async function GET(request: NextRequest) {
   try {
