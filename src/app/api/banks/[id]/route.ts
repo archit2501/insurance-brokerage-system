@@ -204,7 +204,7 @@ export async function PUT(
         oldValues: account,
         newValues: updated[0],
         userId: actorId,
-        ipAddress: request.ip,
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString(),
       });
@@ -285,7 +285,7 @@ export async function DELETE(
           oldValues: existing[0],
           newValues: null,
           userId: actorId,
-          ipAddress: request.ip,
+          ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
           userAgent: request.headers.get('user-agent'),
           createdAt: new Date().toISOString(),
         });
@@ -322,7 +322,7 @@ export async function DELETE(
           oldValues: existing[0],
           newValues: updated[0],
           userId: actorId,
-          ipAddress: request.ip,
+          ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
           userAgent: request.headers.get('user-agent'),
           createdAt: new Date().toISOString(),
         });
