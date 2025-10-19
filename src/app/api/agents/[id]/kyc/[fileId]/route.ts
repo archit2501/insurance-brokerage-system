@@ -9,9 +9,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
+  const { id, fileId: fileIdStr } = await params;
   try {
     // No auth required - open access
-    const agentId = parseInt(params.id);
+    const agentId = parseInt(id);
     const fileId = parseInt(fileIdStr);
 
     if (isNaN(agentId)) {

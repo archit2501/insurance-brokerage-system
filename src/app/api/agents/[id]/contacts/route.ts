@@ -204,11 +204,11 @@ export async function POST(
     const now = new Date().toISOString();
     const insertData = {
       agentId,
-      fullName: fullName.trim(),
+      fullName,
       designation: designation?.trim() || null,
-      email: email?.toLowerCase().trim() || null,
+      email: email?.trim() || null,
       phone: phone?.trim() || null,
-      isPrimary: isPrimaryValue ? 1 : 0,
+      isPrimary: isPrimaryValue,
       status: status || 'active',
       createdAt: now,
       updatedAt: now,
@@ -217,7 +217,7 @@ export async function POST(
     // If setting as primary, update other contacts first
     if (isPrimaryValue) {
       await db.update(agentContacts)
-        .set({ isPrimary: 0, updatedAt: now })
+        .set({ isPrimary: false, updatedAt: now })
         .where(eq(agentContacts.agentId, agentId));
     }
 

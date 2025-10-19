@@ -19,7 +19,7 @@ export async function GET(
     }
 
     const parsedId = parseInt(id);
-    if (isNaN(id)) {
+    if (isNaN(parsedId)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
         { status: 400 }
@@ -47,7 +47,7 @@ export async function GET(
       .where(
         and(
           eq(bankAccounts.ownerType, 'Agent'),
-          eq(bankAccounts.ownerId, id)
+          eq(bankAccounts.ownerId, parsedId)
         )
       );
 
@@ -115,7 +115,7 @@ export async function PUT(
     }
 
     const parsedId = parseInt(id);
-    if (isNaN(id)) {
+    if (isNaN(parsedId)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
         { status: 400 }
@@ -355,7 +355,7 @@ export async function DELETE(
     }
 
     const parsedId = parseInt(id);
-    if (isNaN(id)) {
+    if (isNaN(parsedId)) {
       return NextResponse.json(
         { error: 'Invalid agent ID', code: 'INVALID_ID' },
         { status: 400 }

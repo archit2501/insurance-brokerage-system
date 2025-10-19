@@ -125,10 +125,10 @@ export async function POST(
     const hash = createHash('sha256').update(buffer).digest('hex');
 
     // Create directory and save file
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'agents', agentId);
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'agents', agentId.toString());
     const fileId = Date.now();
     const fileName = `${fileId}-${file.name}`;
-    const relativeFilePath = path.join('uploads', 'agents', agentId, fileName);
+    const relativeFilePath = path.join('uploads', 'agents', agentId.toString(), fileName);
 
     await mkdir(uploadDir, { recursive: true });
     const filePath = path.join(uploadDir, fileName);

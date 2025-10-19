@@ -16,8 +16,6 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const type = searchParams.get('type');
 
-    let query = db.select().from(agents);
-
     const conditions = [];
 
     if (search) {
@@ -43,14 +41,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    const results = await query
-      .orderBy(desc(agents.createdAt))
-      .limit(limit)
-      .offset(offset);
+    const results = conditions.length > 0
+      ? await db.select().from(agents)
+          .where(and(...conditions))
+          .orderBy(desc(agents.createdAt))
+          .limit(limit)
+          .offset(offset)
+      : await db.select().from(agents)
+          .orderBy(desc(agents.createdAt))
+          .limit(limit)
+          .offset(offset);
 
     const formattedResults = results.map(agent => ({
       id: agent.id,
