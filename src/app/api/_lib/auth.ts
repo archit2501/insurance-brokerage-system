@@ -166,7 +166,7 @@ export async function requireRole(request: NextRequest, requiredRole: string): P
     };
   }
   
-  return { success: true };
+  return { success: true, userId: authResult.userId };
 }
 
 // Approval level mapping and checks
@@ -205,7 +205,7 @@ export function validateEmail(email: string): { success: boolean; error?: string
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0]?.message || 'Invalid email format' };
     }
     return { success: false, error: 'Invalid email format' };
   }
@@ -218,7 +218,7 @@ export function validatePhone(phone: string): { success: boolean; error?: string
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0]?.message || 'Invalid phone format' };
     }
     return { success: false, error: 'Invalid phone format' };
   }
@@ -230,7 +230,7 @@ export function validatePassword(password: string): { success: boolean; error?: 
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.errors[0].message };
+      return { success: false, error: error.issues[0]?.message || 'Invalid password format' };
     }
     return { success: false, error: 'Invalid password format' };
   }

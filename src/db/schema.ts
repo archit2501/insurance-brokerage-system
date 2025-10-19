@@ -400,6 +400,16 @@ export const insurerEmails = sqliteTable('insurer_emails', {
   uniqueInsurerRoleEmail: index('unique_insurer_role_email').on(table.insurerId, table.role, table.email),
 }));
 
+// Insurer LOBs mapping (which insurers underwrite which lines of business)
+export const insurerLobs = sqliteTable('insurer_lobs', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  insurerId: integer('insurer_id').references(() => insurers.id),
+  lobId: integer('lob_id').references(() => lobs.id),
+  createdAt: text('created_at').notNull(),
+}, (table) => ({
+  uniqueInsurerLob: index('unique_insurer_lob').on(table.insurerId, table.lobId),
+}));
+
 // Auth tables for better-auth
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
