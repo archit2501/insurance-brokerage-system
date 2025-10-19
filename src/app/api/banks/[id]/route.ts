@@ -24,14 +24,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require authentication
     const authResult = await authenticateRequest(request);
     if (!authResult.success) {
       return authResult.response;
     }
-    
-    const { id } = params;
     
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
