@@ -67,14 +67,13 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require authentication
     const authResult = await authenticateRequest(request);
     if (!authResult.success) {
       return authResult.response;
     }
-    
-    const { id } = params;
     
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json(
@@ -226,6 +225,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
     // Require authentication
     const authResult = await authenticateRequest(request);
@@ -233,7 +233,6 @@ export async function DELETE(
       return authResult.response;
     }
     
-    const { id } = params;
     const { searchParams } = new URL(request.url);
     const hardDelete = searchParams.get('hard') === 'true';
     
