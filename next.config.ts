@@ -12,6 +12,13 @@ const nextConfig: NextConfig = {
     // Temporarily ignore ESLint errors during build
     ignoreDuringBuilds: true,
   },
+  webpack: (config) => {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, './src'),
+    };
+    return config;
+  },
   images: {
     remotePatterns: [
       {
