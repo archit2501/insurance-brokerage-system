@@ -119,7 +119,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const results = await query
@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
         oldValues: null,
         newValues: newAccount[0],
         userId: actorId,
-        ipAddress: request.ip,
+        ipAddress: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
         userAgent: request.headers.get('user-agent'),
         createdAt: now
       });

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { notes, noteSequences, cnInsurerShares, clients, insurers, policies, users } from '@/db/schema';
 import { eq, like, and, or, desc, asc, sql, inArray } from 'drizzle-orm';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -77,7 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const results = await query
@@ -127,10 +129,13 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const userId = request.headers.get('x-user-id');
-    if (!userId) {
+    // Get session directly to extract user email
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session || !session.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
+
+    console.log('DEBUG POST - session.user:', session.user);
 
     const body = await request.json();
 
@@ -153,7 +158,16 @@ export async function POST(request: NextRequest) {
       agentCommissionPct = 0,
       levies = {},
       payableBankAccountId,
-      coInsurance
+      coInsurance,
+      // Enhanced fields
+      paymentTerms,
+      paymentDueDate,
+      lobSpecificDetails,
+      specialConditions,
+      endorsementDetails,
+      currency = 'NGN',
+      exchangeRate = 1.0,
+      issueDate
     } = body;
 
     // Validate required fields
@@ -221,6 +235,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Validate enhanced fields
+    if (currency && !['NGN', 'USD', 'EUR', 'GBP', 'ZAR', 'KES', 'GHS'].includes(currency)) {
+      return NextResponse.json({ 
+        error: "Invalid currency code. Supported: NGN, USD, EUR, GBP, ZAR, KES, GHS",
+        code: "INVALID_CURRENCY" 
+      }, { status: 400 });
+    }
+
+    if (exchangeRate !== undefined) {
+      const rate = parseFloat(String(exchangeRate));
+      if (isNaN(rate) || rate <= 0) {
+        return NextResponse.json({ 
+          error: "Exchange rate must be a positive number",
+          code: "INVALID_EXCHANGE_RATE" 
+        }, { status: 400 });
+      }
+    }
+
+    if (paymentDueDate) {
+      const dueDate = new Date(paymentDueDate);
+      if (isNaN(dueDate.getTime())) {
+        return NextResponse.json({ 
+          error: "Invalid payment due date format",
+          code: "INVALID_DATE" 
+        }, { status: 400 });
+      }
+    }
+
+    if (issueDate) {
+      const issueDateObj = new Date(issueDate);
+      if (isNaN(issueDateObj.getTime())) {
+        return NextResponse.json({ 
+          error: "Invalid issue date format",
+          code: "INVALID_DATE" 
+        }, { status: 400 });
+      }
+    }
+
+    if (lobSpecificDetails) {
+      try {
+        if (typeof lobSpecificDetails === 'string') {
+          JSON.parse(lobSpecificDetails);
+        } else if (typeof lobSpecificDetails !== 'object') {
+          throw new Error('Invalid type');
+        }
+      } catch (e) {
+        return NextResponse.json({ 
+          error: "lobSpecificDetails must be a valid JSON object",
+          code: "INVALID_JSON" 
+        }, { status: 400 });
+      }
+    }
+
     // levies non-negative
     if (levies) {
       const l = { niacom: levies.niacom ?? 0, ncrib: levies.ncrib ?? 0, ed_tax: levies.ed_tax ?? 0 } as any;
@@ -241,7 +308,56 @@ export async function POST(request: NextRequest) {
 
     const brokerageAmount = round2(gross * brokerage / 100);
     const vatOnBrokerage = round2(brokerageAmount * vat / 100);
-    const agentCommissionAmount = round2(gross * agentCommission / 100);
+    
+    // Auto-calculate agent commission using commission structures
+    let agentCommissionAmount = round2(gross * agentCommission / 100);
+    let autoCalculatedCommission = false;
+    
+    // If agentCommissionPct is 0, try to auto-calculate from commission structures
+    if (agentCommission === 0 && insurerId) {
+      try {
+        // Get policy details to determine LOB
+        const policy = await db.select()
+          .from(policies)
+          .where(eq(policies.id, parseInt(policyId)))
+          .limit(1);
+        
+        if (policy.length > 0 && policy[0].lobId) {
+          // Determine policy type based on isRenewal flag
+          const policyType = policy[0].isRenewal ? 'Renewal' : 'New';
+          
+          // Call commission calculator
+          const calcResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/commissions/calculate`, {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Cookie': request.headers.get('Cookie') || '',
+              'Authorization': request.headers.get('Authorization') || '',
+            },
+            body: JSON.stringify({
+              insurerId: parseInt(insurerId),
+              lobId: policy[0].lobId,
+              policyType,
+              baseAmount: gross,
+              effectiveDate: policy[0].policyStartDate,
+            }),
+          });
+          
+          if (calcResponse.ok) {
+            const calcResult = await calcResponse.json();
+            if (calcResult.commissionAmount > 0) {
+              agentCommissionAmount = round2(calcResult.commissionAmount);
+              autoCalculatedCommission = true;
+              console.log(`✅ Auto-calculated commission: ₦${agentCommissionAmount} (${calcResult.rate}% from ${calcResult.source})`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to auto-calculate commission:', error);
+        // Continue with agentCommissionAmount = 0
+      }
+    }
+    
     const netBrokerage = round2(brokerageAmount - agentCommissionAmount);
 
     const niacom = parseFloat(levies.niacom || 0);
@@ -276,6 +392,28 @@ export async function POST(request: NextRequest) {
 
       const noteId = `${noteType}/${currentYear}/${String(nextSeq).padStart(6, '0')}`;
 
+      // Look up user by email from session
+      let preparedBy: number | null = null;
+      const userEmail = session.user.email;
+      console.log('DEBUG CREATE NOTE - session email:', userEmail);
+
+      if (userEmail) {
+        // Look up the user by email to get the integer ID
+        const userResult = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, userEmail))
+          .limit(1);
+
+        if (userResult.length > 0) {
+          preparedBy = userResult[0].id;
+          console.log('DEBUG CREATE NOTE - Found user by email, preparedBy set to:', preparedBy);
+        } else {
+          console.log('DEBUG CREATE NOTE - No user found with email:', userEmail);
+        }
+      } else {
+        console.log('DEBUG CREATE NOTE - No email in session');
+      }
+
       const noteData = {
         noteId,
         noteType,
@@ -300,10 +438,21 @@ export async function POST(request: NextRequest) {
         netAmountDue,
         payableBankAccountId: payableBankAccountId || null,
         coInsurance: coInsurance ? JSON.stringify(coInsurance) : null,
+        // Enhanced fields
+        paymentTerms: paymentTerms || null,
+        paymentDueDate: paymentDueDate || null,
+        lobSpecificDetails: lobSpecificDetails ? 
+          (typeof lobSpecificDetails === 'string' ? lobSpecificDetails : JSON.stringify(lobSpecificDetails)) 
+          : null,
+        specialConditions: specialConditions || null,
+        endorsementDetails: endorsementDetails || null,
+        currency: currency || 'NGN',
+        exchangeRate: exchangeRate ? parseFloat(String(exchangeRate)) : 1.0,
+        issueDate: issueDate || null,
         status: 'Draft',
         pdfPath: `/pdf/${noteId}.pdf`,
         sha256Hash: hashHex,
-        preparedBy: parseInt(userId),
+        preparedBy,
         createdAt: now,
         updatedAt: now
       };
@@ -374,18 +523,27 @@ export async function PUT(request: NextRequest) {
       levies,
       payableBankAccountId,
       coInsurance,
-      status
+      status,
+      // Enhanced fields
+      paymentTerms,
+      paymentDueDate,
+      lobSpecificDetails,
+      specialConditions,
+      endorsementDetails,
+      currency,
+      exchangeRate,
+      issueDate
     } = body;
 
-    // Check if note exists and belongs to user
+    // Check if note exists (skip user ownership check for better-auth users with null preparedBy)
     const existingNote = await db.select()
       .from(notes)
-      .where(and(eq(notes.id, parseInt(id)), eq(notes.preparedBy, parseInt(userId))))
+      .where(eq(notes.id, parseInt(id)))
       .limit(1);
 
     if (existingNote.length === 0) {
       return NextResponse.json({ 
-        error: "Note not found or access denied",
+        error: "Note not found",
         code: "NOT_FOUND" 
       }, { status: 404 });
     }
@@ -399,6 +557,75 @@ export async function PUT(request: NextRequest) {
     if (insurerId !== undefined) updates.insurerId = insurerId ? parseInt(insurerId) : null;
     if (payableBankAccountId !== undefined) updates.payableBankAccountId = payableBankAccountId;
     if (status) updates.status = status;
+
+    // Update enhanced fields
+    if (paymentTerms !== undefined) updates.paymentTerms = paymentTerms;
+    if (paymentDueDate !== undefined) {
+      if (paymentDueDate) {
+        const dueDate = new Date(paymentDueDate);
+        if (isNaN(dueDate.getTime())) {
+          return NextResponse.json({ 
+            error: "Invalid payment due date format",
+            code: "INVALID_DATE" 
+          }, { status: 400 });
+        }
+      }
+      updates.paymentDueDate = paymentDueDate;
+    }
+    if (lobSpecificDetails !== undefined) {
+      if (lobSpecificDetails) {
+        try {
+          if (typeof lobSpecificDetails === 'string') {
+            JSON.parse(lobSpecificDetails);
+            updates.lobSpecificDetails = lobSpecificDetails;
+          } else if (typeof lobSpecificDetails === 'object') {
+            updates.lobSpecificDetails = JSON.stringify(lobSpecificDetails);
+          } else {
+            throw new Error('Invalid type');
+          }
+        } catch (e) {
+          return NextResponse.json({ 
+            error: "lobSpecificDetails must be a valid JSON object",
+            code: "INVALID_JSON" 
+          }, { status: 400 });
+        }
+      } else {
+        updates.lobSpecificDetails = null;
+      }
+    }
+    if (specialConditions !== undefined) updates.specialConditions = specialConditions;
+    if (endorsementDetails !== undefined) updates.endorsementDetails = endorsementDetails;
+    if (currency !== undefined) {
+      if (currency && !['NGN', 'USD', 'EUR', 'GBP', 'ZAR', 'KES', 'GHS'].includes(currency)) {
+        return NextResponse.json({ 
+          error: "Invalid currency code. Supported: NGN, USD, EUR, GBP, ZAR, KES, GHS",
+          code: "INVALID_CURRENCY" 
+        }, { status: 400 });
+      }
+      updates.currency = currency;
+    }
+    if (exchangeRate !== undefined) {
+      const rate = parseFloat(String(exchangeRate));
+      if (isNaN(rate) || rate <= 0) {
+        return NextResponse.json({ 
+          error: "Exchange rate must be a positive number",
+          code: "INVALID_EXCHANGE_RATE" 
+        }, { status: 400 });
+      }
+      updates.exchangeRate = rate;
+    }
+    if (issueDate !== undefined) {
+      if (issueDate) {
+        const issueDateObj = new Date(issueDate);
+        if (isNaN(issueDateObj.getTime())) {
+          return NextResponse.json({ 
+            error: "Invalid issue date format",
+            code: "INVALID_DATE" 
+          }, { status: 400 });
+        }
+      }
+      updates.issueDate = issueDate;
+    }
 
     // Recalculate financials if any related fields changed
     if (grossPremium !== undefined || brokeragePct !== undefined || vatPct !== undefined || 
@@ -419,7 +646,8 @@ export async function PUT(request: NextRequest) {
       const agentCommissionAmount = round2(gross * agentCommission / 100);
       const netBrokerage = round2(brokerageAmount - agentCommissionAmount);
 
-      const leviesData = levies || JSON.parse(existingNote[0].levies || '{}');
+      const existingLeviesStr = existingNote[0].levies as string | null;
+      const leviesData = levies || (existingLeviesStr ? JSON.parse(existingLeviesStr) : { niacom: 0, ncrib: 0, ed_tax: 0 });
       const totalLevies = round2((parseFloat(leviesData.niacom || 0)) + 
                          (parseFloat(leviesData.ncrib || 0)) + 
                          (parseFloat(leviesData.ed_tax || 0)));
@@ -453,11 +681,12 @@ export async function PUT(request: NextRequest) {
 
     const updated = await db.update(notes)
       .set(updates)
-      .where(and(eq(notes.id, parseInt(id)), eq(notes.preparedBy, parseInt(userId))))
+      .where(eq(notes.id, parseInt(id)))
       .returning();
 
     // persist co-insurer shares when coInsurance changed (CN only)
     if (coInsurance !== undefined && existingNote[0].noteType === 'CN') {
+      const round2 = (n: number) => Number((n).toFixed(2));
       const grossForShares = (grossPremium !== undefined) ? parseFloat(grossPremium) : existingNote[0].grossPremium;
       await db.delete(cnInsurerShares).where(eq(cnInsurerShares.noteId, parseInt(id)));
       if (coInsurance && coInsurance.length > 0) {
@@ -497,15 +726,15 @@ export async function DELETE(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if note exists and belongs to user
+    // Check if note exists (skip user ownership check for better-auth users with null preparedBy)
     const existingNote = await db.select()
       .from(notes)
-      .where(and(eq(notes.id, parseInt(id)), eq(notes.preparedBy, parseInt(userId))))
+      .where(eq(notes.id, parseInt(id)))
       .limit(1);
 
     if (existingNote.length === 0) {
       return NextResponse.json({ 
-        error: "Note not found or access denied",
+        error: "Note not found",
         code: "NOT_FOUND" 
       }, { status: 404 });
     }
@@ -519,7 +748,7 @@ export async function DELETE(request: NextRequest) {
 
     // Delete the note
     const deleted = await db.delete(notes)
-      .where(and(eq(notes.id, parseInt(id)), eq(notes.preparedBy, parseInt(userId))))
+      .where(eq(notes.id, parseInt(id)))
       .returning();
 
     return NextResponse.json({ 

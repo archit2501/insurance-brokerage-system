@@ -52,5 +52,3 @@ next-env.d.ts
 # scripts and testing
 test-*.ps1
 complete-workflow-test.ps1
-
-.vercel

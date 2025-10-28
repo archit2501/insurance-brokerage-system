@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Require Underwriter or higher to create contacts
-    const roleCheck = requireRole(request, VALID_ROLES.UNDERWRITER);
+    const roleCheck = await requireRole(request, VALID_ROLES.UNDERWRITER);
     if (!roleCheck.success) return roleCheck.response;
 
     const searchParams = request.nextUrl.searchParams;
@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Require Underwriter or higher to update contacts
-    const roleCheck = requireRole(request, VALID_ROLES.UNDERWRITER);
+    const roleCheck = await requireRole(request, VALID_ROLES.UNDERWRITER);
     if (!roleCheck.success) return roleCheck.response;
 
     const searchParams = request.nextUrl.searchParams;
@@ -266,7 +266,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Require Underwriter or higher to delete contacts
-    const roleCheck = requireRole(request, VALID_ROLES.UNDERWRITER);
+    const roleCheck = await requireRole(request, VALID_ROLES.UNDERWRITER);
     if (!roleCheck.success) return roleCheck.response;
 
     const searchParams = request.nextUrl.searchParams;

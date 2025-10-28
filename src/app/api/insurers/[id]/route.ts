@@ -232,6 +232,10 @@ export async function PUT(
 
     // Audit log
     if (currentUserId) {
+      const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown';
+
       await db.insert(auditLogs).values({
         tableName: 'insurers',
         recordId: parseInt(id),
@@ -239,7 +243,7 @@ export async function PUT(
         oldValues: current,
         newValues: updated[0],
         userId: parseInt(currentUserId),
-        ipAddress: request.ip,
+        ipAddress,
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString()
       });
@@ -298,6 +302,10 @@ export async function DELETE(
 
     // Audit log
     if (currentUserId) {
+      const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown';
+
       await db.insert(auditLogs).values({
         tableName: 'insurers',
         recordId: parseInt(id),
@@ -305,7 +313,7 @@ export async function DELETE(
         oldValues: existingInsurer[0],
         newValues: deleted[0],
         userId: parseInt(currentUserId),
-        ipAddress: request.ip,
+        ipAddress,
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString()
       });

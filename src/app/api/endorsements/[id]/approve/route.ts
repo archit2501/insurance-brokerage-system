@@ -7,7 +7,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: endorsementIdStr } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -32,14 +32,13 @@ export async function POST(
       }, { status: 403 });
     }
 
-    if (!id || isNaN(parseInt(id))) {
+    const endorsementId = parseInt(endorsementIdStr);
+    if (!endorsementIdStr || isNaN(endorsementId)) {
       return NextResponse.json({ 
         error: 'Valid endorsement ID is required',
         code: 'INVALID_ID' 
       }, { status: 400 });
     }
-    
-    const endorsementId = parseInt(id);
 
     // Check if endorsement exists and is in Draft status
     const endorsement = await db.select()

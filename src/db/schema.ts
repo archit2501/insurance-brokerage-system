@@ -152,6 +152,23 @@ export const policies = sqliteTable('policies', {
   policyEndDate: text('policy_end_date').notNull(),
   confirmationDate: text('confirmation_date'),
   status: text('status').notNull().default('active'),
+  // Broking Slip fields
+  slipNumber: text('slip_number').unique(),
+  slipStatus: text('slip_status'), // 'draft', 'submitted', 'bound', 'declined', 'expired'
+  slipGeneratedAt: text('slip_generated_at'),
+  slipValidUntil: text('slip_valid_until'),
+  riskDetails: text('risk_details', { mode: 'json' }), // LOB-specific: {vehicleRegNo, make, model, chassisNo, ...} or {propertyAddress, buildingValue, contentsValue, ...}
+  submittedToInsurerAt: text('submitted_to_insurer_at'),
+  insurerResponseAt: text('insurer_response_at'),
+  placementProportion: real('placement_proportion').default(100), // % of risk placed with insurer (for co-insurance)
+  // Renewal tracking
+  isRenewal: integer('is_renewal', { mode: 'boolean' }).default(false),
+  renewedFromPolicyId: integer('renewed_from_policy_id'), // ID of previous policy (if this is a renewal)
+  renewedToPolicyId: integer('renewed_to_policy_id'), // ID of renewal policy (if this policy was renewed)
+  renewalReminderSent: integer('renewal_reminder_sent', { mode: 'boolean' }).default(false),
+  // Status tracking
+  lastStatusCheck: text('last_status_check'), // Timestamp of last auto-status check
+  autoExpired: integer('auto_expired', { mode: 'boolean' }).default(false), // True if auto-marked as expired
   createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
@@ -191,6 +208,17 @@ export const endorsementSequences = sqliteTable('endorsement_sequences', {
   uniqueEntityYear: index('unique_endorsement_entity_year').on(table.entity, table.year),
 }));
 
+// Slip Sequences for broking slip numbering
+export const slipSequences = sqliteTable('slip_sequences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  year: integer('year').notNull(),
+  lastSeq: integer('last_seq').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  uniqueYear: index('unique_slip_year').on(table.year),
+}));
+
 // Notes (DN/CN)
 export const notes = sqliteTable('notes', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -218,6 +246,15 @@ export const notes = sqliteTable('notes', {
   sha256Hash: text('sha256_hash'),
   preparedBy: integer('prepared_by').references(() => users.id),
   authorizedBy: integer('authorized_by').references(() => users.id),
+  // Enhanced CN fields
+  paymentTerms: text('payment_terms'), // '30 days from issue date'
+  paymentDueDate: text('payment_due_date'),
+  lobSpecificDetails: text('lob_specific_details', { mode: 'json' }), // Marine/Motor/Fire specific data
+  specialConditions: text('special_conditions'), // Any special policy conditions
+  endorsementDetails: text('endorsement_details'), // If CN relates to endorsement
+  currency: text('currency').default('NGN'),
+  exchangeRate: real('exchange_rate').default(1.0), // For foreign currency policies
+  issueDate: text('issue_date'), // Formal issue date (may differ from createdAt)
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, (table) => ({
@@ -400,16 +437,6 @@ export const insurerEmails = sqliteTable('insurer_emails', {
   uniqueInsurerRoleEmail: index('unique_insurer_role_email').on(table.insurerId, table.role, table.email),
 }));
 
-// Insurer LOBs mapping (which insurers underwrite which lines of business)
-export const insurerLobs = sqliteTable('insurer_lobs', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  insurerId: integer('insurer_id').references(() => insurers.id),
-  lobId: integer('lob_id').references(() => lobs.id),
-  createdAt: text('created_at').notNull(),
-}, (table) => ({
-  uniqueInsurerLob: index('unique_insurer_lob').on(table.insurerId, table.lobId),
-}));
-
 // Auth tables for better-auth
 export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
@@ -475,26 +502,233 @@ export const verification = sqliteTable("verification", {
   ),
 });
 
-// Centralized Sequences table for entity numbering
-export const centralizedSequences = sqliteTable('centralized_sequences', {
+// Commission Structures Master
+export const commissionStructures = sqliteTable('commission_structures', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  scope: text('scope').notNull(), // 'CLIENT', 'BANK', 'INSURER', 'AGENT', 'POLICY', etc.
-  year: integer('year').notNull(),
-  lastSeq: integer('last_seq').notNull().default(0),
+  insurerId: integer('insurer_id').references(() => insurers.id),
+  lobId: integer('lob_id').references(() => lobs.id),
+  policyType: text('policy_type'), // 'New', 'Renewal', 'Endorsement' (nullable = applies to all)
+  commissionType: text('commission_type').notNull().default('percentage'), // 'percentage' | 'flat'
+  rate: real('rate').notNull(), // percentage (e.g., 2.5 = 2.5%) or flat amount
+  minAmount: real('min_amount').default(0),
+  maxAmount: real('max_amount'),
+  effectiveDate: text('effective_date').notNull(),
+  expiryDate: text('expiry_date'),
+  status: text('status').notNull().default('active'), // 'active' | 'inactive'
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, (table) => ({
-  uniqueScopeYear: index('unique_scope_year').on(table.scope, table.year),
+  structureIndex: index('commission_structure_idx').on(table.insurerId, table.lobId, table.policyType, table.effectiveDate),
 }));
 
-// Client Sequences table for client-specific numbering
-export const clientSequences = sqliteTable('client_sequences', {
+// Commission Transactions (earned commissions tracking)
+export const commissions = sqliteTable('commissions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  policyId: integer('policy_id').references(() => policies.id),
+  noteId: integer('note_id').references(() => notes.id),
+  agentId: integer('agent_id').references(() => agents.id),
+  structureId: integer('structure_id').references(() => commissionStructures.id),
+  commissionType: text('commission_type').notNull(), // 'percentage' | 'flat'
+  rate: real('rate').notNull(),
+  baseAmount: real('base_amount').notNull(), // gross premium or brokerage amount
+  commissionAmount: real('commission_amount').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'approved' | 'paid'
+  statementId: integer('statement_id'), // References commission statement when grouped
+  paidDate: text('paid_date'),
+  notes: text('notes'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  agentIndex: index('commission_agent_idx').on(table.agentId, table.status),
+  policyIndex: index('commission_policy_idx').on(table.policyId),
+}));
+
+// Commission Statements (grouped payments to agents)
+export const commissionStatements = sqliteTable('commission_statements', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  statementNumber: text('statement_number').notNull().unique(),
+  agentId: integer('agent_id').references(() => agents.id),
+  periodStart: text('period_start').notNull(),
+  periodEnd: text('period_end').notNull(),
+  totalCommission: real('total_commission').notNull(),
+  status: text('status').notNull().default('draft'), // 'draft' | 'issued' | 'paid'
+  issuedDate: text('issued_date'),
+  paidDate: text('paid_date'),
+  paymentReference: text('payment_reference'),
+  notes: text('notes'),
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  agentIndex: index('statement_agent_idx').on(table.agentId, table.periodStart),
+}));
+
+// Claims Management
+export const claims = sqliteTable('claims', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  claimNumber: text('claim_number').notNull().unique(), // CLM/2025/000001
+  policyId: integer('policy_id').references(() => policies.id),
+  claimantName: text('claimant_name').notNull(),
+  claimantPhone: text('claimant_phone'),
+  claimantEmail: text('claimant_email'),
+  lossDate: text('loss_date').notNull(), // Date of incident
+  reportedDate: text('reported_date').notNull(), // Date claim was reported
+  lossLocation: text('loss_location'),
+  lossDescription: text('loss_description').notNull(),
+  claimAmount: real('claim_amount').notNull(), // Initial claimed amount
+  estimatedLoss: real('estimated_loss'), // Loss adjuster's estimate
+  approvedAmount: real('approved_amount'), // Amount approved for settlement
+  settlementAmount: real('settlement_amount'), // Final paid amount
+  status: text('status').notNull().default('Registered'), // 'Registered', 'UnderInvestigation', 'Approved', 'Rejected', 'Settled', 'Closed'
+  priority: text('priority').notNull().default('Medium'), // 'Low', 'Medium', 'High', 'Critical'
+  adjusterAssignedId: integer('adjuster_assigned_id').references(() => users.id), // Loss adjuster (user with role='Claims')
+  assignedDate: text('assigned_date'),
+  investigationNotes: text('investigation_notes'),
+  rejectionReason: text('rejection_reason'),
+  settlementDate: text('settlement_date'),
+  closedDate: text('closed_date'),
+  closureReason: text('closure_reason'),
+  currency: text('currency').notNull().default('NGN'),
+  exchangeRate: real('exchange_rate').default(1.0),
+  registeredBy: integer('registered_by').references(() => users.id),
+  approvedBy: integer('approved_by').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  policyIndex: index('claim_policy_idx').on(table.policyId),
+  statusIndex: index('claim_status_idx').on(table.status),
+  adjusterIndex: index('claim_adjuster_idx').on(table.adjusterAssignedId),
+  lossDateIndex: index('claim_loss_date_idx').on(table.lossDate),
+}));
+
+// Claim Documents
+export const claimDocuments = sqliteTable('claim_documents', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  claimId: integer('claim_id').references(() => claims.id),
+  documentType: text('document_type').notNull(), // 'police_report', 'photos', 'estimate', 'invoice', 'medical_report', 'other'
+  fileName: text('file_name').notNull(),
+  filePath: text('file_path').notNull(),
+  fileSize: integer('file_size'),
+  mimeType: text('mime_type'),
+  sha256Hash: text('sha256_hash'),
+  description: text('description'),
+  uploadedBy: integer('uploaded_by').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+}, (table) => ({
+  claimIndex: index('claim_doc_claim_idx').on(table.claimId),
+}));
+
+// Claim Notes/Comments
+export const claimNotes = sqliteTable('claim_notes', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  claimId: integer('claim_id').references(() => claims.id),
+  noteText: text('note_text').notNull(),
+  noteType: text('note_type').notNull().default('general'), // 'general', 'investigation', 'internal', 'client_communication'
+  isInternal: integer('is_internal', { mode: 'boolean' }).default(false), // True = not visible to client
+  createdBy: integer('created_by').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+}, (table) => ({
+  claimIndex: index('claim_note_claim_idx').on(table.claimId),
+}));
+
+// Claim Sequences for auto-numbering
+export const claimSequences = sqliteTable('claim_sequences', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   year: integer('year').notNull(),
-  type: text('type').notNull(), // Type code like 'CL', 'POL', etc.
   lastSeq: integer('last_seq').notNull().default(0),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 }, (table) => ({
-  uniqueYearType: index('unique_year_type').on(table.year, table.type),
+  uniqueYear: index('unique_claim_year').on(table.year),
 }));
+
+// Import Batches (for bulk policy/client/agent imports)
+export const importBatches = sqliteTable('import_batches', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  batchNumber: text('batch_number').notNull().unique(), // IMP/2025/000001
+  importType: text('import_type').notNull(), // 'policies', 'clients', 'agents', 'claims'
+  fileName: text('file_name').notNull(),
+  fileSize: integer('file_size'),
+  totalRows: integer('total_rows').notNull().default(0),
+  successRows: integer('success_rows').notNull().default(0),
+  failedRows: integer('failed_rows').notNull().default(0),
+  status: text('status').notNull().default('pending'), // 'pending', 'processing', 'completed', 'failed'
+  validationErrors: text('validation_errors', { mode: 'json' }), // Array of error objects
+  importedData: text('imported_data', { mode: 'json' }), // Summary of imported records
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  importedBy: integer('imported_by').references(() => users.id),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  typeIndex: index('import_batch_type_idx').on(table.importType),
+  statusIndex: index('import_batch_status_idx').on(table.status),
+}));
+
+// Import Batch Sequences
+export const importBatchSequences = sqliteTable('import_batch_sequences', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  year: integer('year').notNull(),
+  lastSeq: integer('last_seq').notNull().default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  uniqueYear: index('unique_import_batch_year').on(table.year),
+}));
+
+// Policy Property Items for Broking Slip (line items based on Sub-LOB type)
+export const policyPropertyItems = sqliteTable('policy_property_items', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  policyId: integer('policy_id').references(() => policies.id).notNull(),
+  slNo: integer('sl_no').notNull(), // Serial number/row order
+  itemType: text('item_type').notNull(), // 'fire_perils', 'public_liability', 'business_interruption', 'marine', 'motor'
+
+  // Common fields for all types
+  description: text('description').notNull(),
+  details: text('details'), // Memo field for liability and BI
+
+  // Fire & Special Perils fields
+  value: real('value'), // Per unit value
+  noOfUnits: real('no_of_units'), // Number of units
+  sumInsured: real('sum_insured'), // value x noOfUnits
+
+  // Public Liability fields
+  maxLiability: real('max_liability'), // Maximum Limit of Liability/Indemnity
+  aoaAmount: real('aoa_amount'), // Any One Accident amount
+  aoyAmount: real('aoy_amount'), // Any One Year amount
+
+  // Business Interruption fields
+  grossProfit: real('gross_profit'),
+  netProfit: real('net_profit'),
+  standingCharges: real('standing_charges'),
+  auditorFees: real('auditor_fees'),
+  increasedCostOfWorking: real('increased_cost_of_working'),
+  indemnityPeriodMonths: integer('indemnity_period_months'), // In months
+
+  // Common calculation fields
+  rate: real('rate').notNull(), // Rate percentage
+  premium: real('premium').notNull(), // Calculated premium
+
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  policyIdIndex: index('policy_property_items_policy_idx').on(table.policyId),
+}));
+
+// Policy Co-Insurance Shares (Proposed shares for broking slip)
+export const policyCoInsuranceShares = sqliteTable('policy_co_insurance_shares', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  policyId: integer('policy_id').references(() => policies.id).notNull(),
+  insurerId: integer('insurer_id').references(() => insurers.id).notNull(),
+  sharePercentage: real('share_percentage').notNull(), // e.g., 70.00 for 70%
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => ({
+  policyIdIndex: index('policy_co_insurance_shares_policy_idx').on(table.policyId),
+}));
+
+// Alias for backward compatibility
+export const sequences = entitySequences;
+export const clientSequences = entitySequences;

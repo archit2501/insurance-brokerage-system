@@ -2,12 +2,18 @@
 
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
-import { Shield, Users, Building2, FileText, ArrowRight } from "lucide-react";
+import { Shield, Users, Building2, FileText, ArrowRight, BarChart3 } from "lucide-react";
 
 export default function Home() {
   const { data: session, isPending } = useSession();
 
   const features = [
+    {
+      icon: BarChart3,
+      title: "Analytics Dashboard",
+      description: "Real-time insights with interactive charts, revenue trends, and performance metrics",
+      href: "/dashboard"
+    },
     {
       icon: Users,
       title: "Client Management",

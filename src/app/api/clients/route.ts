@@ -458,6 +458,10 @@ export async function PUT(request: NextRequest) {
     const auditUserId = safeParseUserId(authResult.userId);
     
     // Log audit trail
+    const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                     request.headers.get('x-real-ip') ||
+                     'unknown';
+
     await db.insert(auditLogs).values({
       tableName: 'clients',
       recordId: parseInt(id),
@@ -465,7 +469,7 @@ export async function PUT(request: NextRequest) {
       oldValues: existing[0],
       newValues: updated[0],
       userId: auditUserId,
-      ipAddress: request.ip,
+      ipAddress,
       userAgent: request.headers.get('user-agent'),
       createdAt: new Date().toISOString()
     });
@@ -515,6 +519,10 @@ export async function DELETE(request: NextRequest) {
     const auditUserId = safeParseUserId(authResult.userId);
     
     // Log audit trail
+    const deleteIpAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                           request.headers.get('x-real-ip') ||
+                           'unknown';
+
     await db.insert(auditLogs).values({
       tableName: 'clients',
       recordId: parseInt(id),
@@ -522,7 +530,7 @@ export async function DELETE(request: NextRequest) {
       oldValues: deleted[0],
       newValues: null,
       userId: auditUserId,
-      ipAddress: request.ip,
+      ipAddress: deleteIpAddress,
       userAgent: request.headers.get('user-agent'),
       createdAt: new Date().toISOString()
     });

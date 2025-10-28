@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { clients, users } from '@/db/schema';
+import { clients } from '@/db/schema';
 import { eq, and, like, or, desc, asc } from 'drizzle-orm';
 
 // Simple auth helper
@@ -61,7 +61,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(client[0]);
     }
 
-    let query = db.select({
+    // Build where conditions
+    let whereConditions;
+    if (search) {
+      whereConditions = and(
+        eq(clients.createdBy, user.id),
+        or(
+          like(clients.companyName, `%${search}%`),
+          like(clients.cacRcNumber, `%${search}%`),
+          like(clients.tin, `%${search}%`),
+          like(clients.clientCode, `%${search}%`)
+        )
+      );
+    } else {
+      whereConditions = eq(clients.createdBy, user.id);
+    }
+
+    // Determine sort column
+    let sortColumn;
+    switch (sort) {
+      case 'id': sortColumn = clients.id; break;
+      case 'clientCode': sortColumn = clients.clientCode; break;
+      case 'companyName': sortColumn = clients.companyName; break;
+      case 'cacRcNumber': sortColumn = clients.cacRcNumber; break;
+      case 'tin': sortColumn = clients.tin; break;
+      case 'industry': sortColumn = clients.industry; break;
+      case 'city': sortColumn = clients.city; break;
+      case 'state': sortColumn = clients.state; break;
+      case 'kycStatus': sortColumn = clients.kycStatus; break;
+      case 'status': sortColumn = clients.status; break;
+      case 'updatedAt': sortColumn = clients.updatedAt; break;
+      default: sortColumn = clients.createdAt;
+    }
+
+    const orderByClause = order === 'asc' ? asc(sortColumn) : desc(sortColumn);
+
+    const results = await db.select({
       id: clients.id,
       clientCode: clients.clientCode,
       companyName: clients.companyName,
@@ -76,27 +111,10 @@ export async function GET(request: NextRequest) {
       updatedAt: clients.updatedAt
     })
     .from(clients)
-    .where(eq(clients.createdBy, user.id));
-
-    if (search) {
-      query = query.where(
-        and(
-          eq(clients.createdBy, user.id),
-          or(
-            like(clients.companyName, `%${search}%`),
-            like(clients.cacRcNumber, `%${search}%`),
-            like(clients.tin, `%${search}%`),
-            like(clients.clientCode, `%${search}%`)
-          )
-        )
-      );
-    }
-
-    const orderBy = order === 'asc' ? asc(clients[sort]) : desc(clients[sort]);
-    const results = await query
-      .orderBy(orderBy)
-      .limit(limit)
-      .offset(offset);
+    .where(whereConditions)
+    .orderBy(orderByClause)
+    .limit(limit)
+    .offset(offset);
 
     return NextResponse.json(results);
   } catch (error) {

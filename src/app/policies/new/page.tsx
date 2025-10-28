@@ -12,6 +12,7 @@ export default function NewPolicyPage() {
     lobId: "",
     subLobId: "",
     sumInsured: "",
+    rate: "",
     grossPremium: "",
     policyStartDate: "",
     policyEndDate: "",
@@ -105,13 +106,31 @@ export default function NewPolicyPage() {
       return;
     }
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const userId = typeof window !== "undefined" ? localStorage.getItem("user_id") : null;
+    const token = typeof window !== "undefined" ? (localStorage.getItem("bearer_token") || localStorage.getItem("token")) : null;
+    
+    // Try to get user ID from session
+    let userId: string | number | null = null;
+    try {
+      const sessionRes = await fetch("/api/auth/get-session", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        }
+      });
+      if (sessionRes.ok) {
+        const sessionData = await sessionRes.json();
+        userId = sessionData?.user?.id || sessionData?.session?.userId || null;
+      }
+    } catch (e) {
+      console.error("Failed to get session:", e);
+    }
 
     if (!userId) {
       setError("Missing user id. Please ensure you are logged in so x-user-id can be sent.");
       return;
     }
+
+    // Convert userId to string for header (API will parse it back to int)
+    const userIdString = String(userId);
 
     try {
       setSubmitting(true);
@@ -120,7 +139,7 @@ export default function NewPolicyPage() {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          "x-user-id": userId,
+          "x-user-id": userIdString,
         },
         body: JSON.stringify({
           clientId: Number(form.clientId),
@@ -128,6 +147,7 @@ export default function NewPolicyPage() {
           lobId: Number(form.lobId),
           subLobId: form.subLobId ? Number(form.subLobId) : undefined,
           sumInsured: Number(form.sumInsured),
+          rate: form.rate ? Number(form.rate) : undefined,
           grossPremium: Number(form.grossPremium),
           policyStartDate: form.policyStartDate,
           policyEndDate: form.policyEndDate,
@@ -140,9 +160,9 @@ export default function NewPolicyPage() {
         return;
       }
 
-      setSuccess("Policy created successfully.");
-      // small delay then go back to list
-      setTimeout(() => router.push("/policies"), 600);
+      setSuccess(`Policy #${data.policyNumber || data.id} created successfully! Redirecting...`);
+      // Immediate redirect to policies list
+      router.push("/policies");
     } catch (err: any) {
       setError(err?.message || "Failed to create policy");
     } finally {
@@ -229,13 +249,85 @@ export default function NewPolicyPage() {
 
             <div>
               <label className="block text-sm mb-1">Sum Insured *</label>
-              <input type="number" step="0.01" className="w-full rounded-md border border-border bg-background px-3 py-2"
-                value={form.sumInsured} onChange={(e) => update("sumInsured", e.target.value)} required />
+              <input
+                type="number"
+                step="0.01"
+                className="w-full rounded-md border border-border bg-background px-3 py-2"
+                value={form.sumInsured}
+                onChange={(e) => {
+                  update("sumInsured", e.target.value);
+                  // Auto-calculate premium if rate is present
+                  if (form.rate && e.target.value) {
+                    const calculated = (parseFloat(e.target.value) * parseFloat(form.rate)) / 100;
+                    update("grossPremium", calculated.toFixed(2));
+                  }
+                }}
+                required
+              />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Rate (%) *
+                {form.rate && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      update("rate", "");
+                      update("grossPremium", "");
+                    }}
+                    className="ml-2 text-xs text-amber-600 hover:underline"
+                  >
+                    ✕ Clear
+                  </button>
+                )}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                className="w-full rounded-md border border-border bg-background px-3 py-2"
+                value={form.rate}
+                onChange={(e) => {
+                  const rateValue = e.target.value;
+                  update("rate", rateValue);
+
+                  // Auto-calculate premium when rate changes
+                  if (form.sumInsured && rateValue) {
+                    const calculated = (parseFloat(form.sumInsured) * parseFloat(rateValue)) / 100;
+                    update("grossPremium", calculated.toFixed(2));
+                  } else if (!rateValue) {
+                    // Clear premium when rate is cleared
+                    update("grossPremium", "");
+                  }
+                }}
+                placeholder="Enter rate as percentage (e.g., 2.5)"
+                required
+              />
+              {form.rate && form.sumInsured && (
+                <div className="text-xs font-medium text-primary mt-1 bg-primary/10 p-2 rounded">
+                  ✓ Premium: {parseFloat(form.sumInsured).toLocaleString()} × {form.rate}% = {((parseFloat(form.sumInsured) * parseFloat(form.rate)) / 100).toLocaleString()} NGN
+                </div>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm mb-1">Gross Premium *</label>
-              <input type="number" step="0.01" className="w-full rounded-md border border-border bg-background px-3 py-2"
-                value={form.grossPremium} onChange={(e) => update("grossPremium", e.target.value)} required />
+              <input
+                type="number"
+                step="0.01"
+                className="w-full rounded-md border border-border bg-background px-3 py-2"
+                value={form.grossPremium}
+                onChange={(e) => {
+                  update("grossPremium", e.target.value);
+                }}
+                required
+                readOnly
+              />
+              <div className="text-xs text-muted-foreground mt-1">
+                Auto-calculated from Sum Insured × Rate%
+              </div>
             </div>
             <div>
               <label className="block text-sm mb-1">Policy Start Date *</label>
@@ -249,11 +341,37 @@ export default function NewPolicyPage() {
             </div>
           </div>
 
+          {/* Premium Calculation Display */}
+          {form.rate && form.sumInsured && (
+            <div className="pt-4 rounded-md border border-border p-4 bg-accent/10">
+              <h3 className="text-sm font-medium mb-3">Premium Calculation</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sum Insured:</span>
+                  <span className="font-medium">{parseFloat(form.sumInsured).toLocaleString()} NGN</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Rate:</span>
+                  <span className="font-medium">{form.rate}%</span>
+                </div>
+                <div className="border-t border-border pt-2 flex justify-between">
+                  <span className="text-muted-foreground">Calculated Premium:</span>
+                  <span className="font-semibold text-lg">{((parseFloat(form.sumInsured) * parseFloat(form.rate)) / 100).toLocaleString()} NGN</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-2 bg-background/50 p-2 rounded">
+                  <strong>Formula:</strong> Sum Insured × Rate% ÷ 100
+                  <br />
+                  <strong>Example:</strong> {parseFloat(form.sumInsured).toLocaleString()} × {form.rate}% ÷ 100 = {((parseFloat(form.sumInsured) * parseFloat(form.rate)) / 100).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
+
           {error && <div className="text-sm text-destructive">{error}</div>}
           {success && <div className="text-sm text-green-600">{success}</div>}
 
           <div className="flex items-center gap-3">
-            <button type="submit" disabled={submitting} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50">
+            <button type="submit" disabled={submitting} className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 shadow-sm transition-colors">
               {submitting ? "Creating…" : "Create Policy"}
             </button>
             <Link href="/policies" className="text-sm text-muted-foreground hover:underline">Cancel</Link>

@@ -181,8 +181,9 @@ export function getApprovalLevel(request: NextRequest): number {
   return APPROVAL_LEVEL_MAP[header] ?? 0;
 }
 
-export function requireApprovalLevel(request: NextRequest, minLevel: number): { success: true } | { success: false; response: NextResponse } {
-  const authResult = authenticateToken(request);
+export async function requireApprovalLevel(request: NextRequest, minLevel: number): Promise<{ success: true; userId: string } | { success: false; response: NextResponse }> {
+  // Use modern better-auth session instead of legacy token
+  const authResult = await authenticateRequest(request);
   if (!authResult.success) return authResult;
 
   const level = getApprovalLevel(request);
@@ -195,7 +196,7 @@ export function requireApprovalLevel(request: NextRequest, minLevel: number): { 
       }, { status: 403 })
     };
   }
-  return { success: true };
+  return { success: true, userId: authResult.userId };
 }
 
 // Validation utilities
@@ -205,7 +206,7 @@ export function validateEmail(email: string): { success: boolean; error?: string
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.issues[0]?.message || 'Invalid email format' };
+      return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: 'Invalid email format' };
   }
@@ -218,7 +219,7 @@ export function validatePhone(phone: string): { success: boolean; error?: string
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.issues[0]?.message || 'Invalid phone format' };
+      return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: 'Invalid phone format' };
   }
@@ -230,7 +231,7 @@ export function validatePassword(password: string): { success: boolean; error?: 
     return { success: true };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return { success: false, error: error.issues[0]?.message || 'Invalid password format' };
+      return { success: false, error: error.issues[0].message };
     }
     return { success: false, error: 'Invalid password format' };
   }

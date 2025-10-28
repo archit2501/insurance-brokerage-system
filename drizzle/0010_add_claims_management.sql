@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS claims (id INTEGER PRIMARY KEY AUTOINCREMENT, claim_number TEXT NOT NULL UNIQUE, policy_id INTEGER REFERENCES policies(id), claimant_name TEXT NOT NULL, claimant_phone TEXT, claimant_email TEXT, loss_date TEXT NOT NULL, reported_date TEXT NOT NULL, loss_location TEXT, loss_description TEXT NOT NULL, claim_amount REAL NOT NULL, estimated_loss REAL, approved_amount REAL, settlement_amount REAL, status TEXT NOT NULL DEFAULT 'Registered', priority TEXT NOT NULL DEFAULT 'Medium', adjuster_assigned_id INTEGER REFERENCES users(id), assigned_date TEXT, investigation_notes TEXT, rejection_reason TEXT, settlement_date TEXT, closed_date TEXT, closure_reason TEXT, currency TEXT NOT NULL DEFAULT 'NGN', exchange_rate REAL DEFAULT 1.0, registered_by INTEGER REFERENCES users(id), approved_by INTEGER REFERENCES users(id), created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS claim_policy_idx ON claims(policy_id);
+CREATE INDEX IF NOT EXISTS claim_status_idx ON claims(status);
+CREATE INDEX IF NOT EXISTS claim_adjuster_idx ON claims(adjuster_assigned_id);
+CREATE INDEX IF NOT EXISTS claim_loss_date_idx ON claims(loss_date);
+CREATE TABLE IF NOT EXISTS claim_documents (id INTEGER PRIMARY KEY AUTOINCREMENT, claim_id INTEGER REFERENCES claims(id), document_type TEXT NOT NULL, file_name TEXT NOT NULL, file_path TEXT NOT NULL, file_size INTEGER, mime_type TEXT, sha256_hash TEXT, description TEXT, uploaded_by INTEGER REFERENCES users(id), created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS claim_doc_claim_idx ON claim_documents(claim_id);
+CREATE TABLE IF NOT EXISTS claim_notes (id INTEGER PRIMARY KEY AUTOINCREMENT, claim_id INTEGER REFERENCES claims(id), note_text TEXT NOT NULL, note_type TEXT NOT NULL DEFAULT 'general', is_internal INTEGER DEFAULT 0, created_by INTEGER REFERENCES users(id), created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS claim_note_claim_idx ON claim_notes(claim_id);
+CREATE TABLE IF NOT EXISTS claim_sequences (id INTEGER PRIMARY KEY AUTOINCREMENT, year INTEGER NOT NULL, last_seq INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS unique_claim_year ON claim_sequences(year);

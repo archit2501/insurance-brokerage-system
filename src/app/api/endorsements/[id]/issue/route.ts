@@ -7,7 +7,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: endorsementIdStr } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -33,14 +33,13 @@ export async function POST(
     }
     
     // Validate ID format
-    if (!id || isNaN(parseInt(id))) {
+    const endorsementId = parseInt(endorsementIdStr);
+    if (!endorsementIdStr || isNaN(endorsementId)) {
       return NextResponse.json(
         { error: 'Valid endorsement ID is required', code: 'INVALID_ID' },
         { status: 400 }
       );
     }
-
-    const endorsementId = parseInt(id);
 
     // Find the endorsement with policy details
     const endorsementWithPolicy = await db
@@ -101,6 +100,13 @@ export async function POST(
       }
     } else {
       // Get LOB minimum
+      if (!policy.lobId) {
+        return NextResponse.json(
+          { error: 'Policy LOB ID is missing', code: 'MISSING_LOB_ID' },
+          { status: 400 }
+        );
+      }
+      
       const lobData = await db.select({
         minPremium: lobs.minPremium
       })

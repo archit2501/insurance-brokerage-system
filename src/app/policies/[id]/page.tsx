@@ -5,7 +5,8 @@ interface PolicyDetailPageProps {
 }
 
 async function getPolicy(id: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || ""}/api/policies/${id}?id=${id}`,
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const res = await fetch(`${baseUrl}/api/policies/${id}`,
     { cache: "no-store" }
   );
   if (!res.ok) return null;
@@ -35,6 +36,16 @@ export default async function PolicyDetailPage({ params }: PolicyDetailPageProps
         <Link href="/policies" className="text-sm text-muted-foreground hover:underline">Back to policies</Link>
       </div>
 
+      {/* Renewal Status Card */}
+      <RenewalCard
+        policyId={Number(id)}
+        policyEndDate={policy.policyEndDate}
+        grossPremium={policy.grossPremium}
+        currency={policy.currency}
+        renewedToPolicyId={policy.renewedToPolicyId}
+        renewedFromPolicyId={policy.renewedFromPolicyId}
+      />
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 rounded-md border border-border p-4">
           <h2 className="text-sm font-medium mb-3">Details</h2>
@@ -60,6 +71,10 @@ export default async function PolicyDetailPage({ params }: PolicyDetailPageProps
               <div>{Number(policy.sumInsured).toLocaleString()}</div>
             </div>
             <div>
+              <div className="text-muted-foreground">Rate</div>
+              <div>{policy.rate ? `${policy.rate}%` : 'N/A'}</div>
+            </div>
+            <div>
               <div className="text-muted-foreground">Gross Premium</div>
               <div>{Number(policy.grossPremium).toLocaleString()} {policy.currency}</div>
             </div>
@@ -70,14 +85,35 @@ export default async function PolicyDetailPage({ params }: PolicyDetailPageProps
           </div>
         </div>
 
+        <div className="space-y-4">
+          <div className="rounded-md border border-border p-4">
+            <h2 className="text-sm font-medium mb-3">Create CN/DN</h2>
+            <NoteCreateCard
+              policyId={Number(id)}
+              clientId={policy.client?.id}
+              insurerId={policy.insurer?.id}
+              defaultGross={policy.grossPremium}
+            />
+          </div>
+
+          <div className="rounded-md border border-border p-4">
+            <h2 className="text-sm font-medium mb-3">Broking Slip</h2>
+            <BrokingSlipCard policyId={Number(id)} policy={policy} />
+          </div>
+        </div>
+      </div>
+
+      {/* Property Items & Co-Insurance Shares Section */}
+      <div className="space-y-4">
         <div className="rounded-md border border-border p-4">
-          <h2 className="text-sm font-medium mb-3">Create CN/DN</h2>
-          <NoteCreateCard
+          <PropertyItemsManager
             policyId={Number(id)}
-            clientId={policy.client?.id}
-            insurerId={policy.insurer?.id}
-            defaultGross={policy.grossPremium}
+            subLobName={policy.subLob?.name || policy.lob?.name || 'General'}
           />
+        </div>
+
+        <div className="rounded-md border border-border p-4">
+          <CoInsuranceSharesManager policyId={Number(id)} />
         </div>
       </div>
     </div>
@@ -86,3 +122,7 @@ export default async function PolicyDetailPage({ params }: PolicyDetailPageProps
 
 // Client component is imported dynamically below to keep this page as a server component
 import NoteCreateCard from "./NoteCreateCard";
+import BrokingSlipCard from "./BrokingSlipCard";
+import PropertyItemsManager from "./PropertyItemsManager";
+import CoInsuranceSharesManager from "./CoInsuranceSharesManager";
+import { RenewalCard } from "@/components/RenewalCard";

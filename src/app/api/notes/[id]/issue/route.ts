@@ -4,13 +4,15 @@ import { notes, reminders, users, policies, clients } from '@/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import { requireApprovalLevel } from '@/app/api/_lib/auth';
-import PDFDocument from 'pdfkit';
+// @ts-ignore - pdfkit standalone doesn't have types but works in Node
+import PDFDocument from 'pdfkit/js/pdfkit.standalone';
 import crypto from 'crypto';
 
 // Minimal PDF generator (same fields as /pdf route)
 function generatePdfBuffer({ note, client, policy }: { note: any; client: any; policy?: any; }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 48 });
+  const doc = new PDFDocument({ size: 'A4', margin: 48 });
+  doc.font('Times-Roman');
     const chunks: Buffer[] = [];
     doc.on('data', (d) => chunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
     doc.on('error', reject);
@@ -174,7 +176,7 @@ function generatePdfBuffer({ note, client, policy }: { note: any; client: any; p
 export async function POST(request: NextRequest) {
   try {
     // Enforce approval level >= L3 before proceeding
-    const approvalCheck = requireApprovalLevel(request, 3);
+    const approvalCheck = await requireApprovalLevel(request, 3);
     if (!approvalCheck.success) return approvalCheck.response;
 
     const user = await getCurrentUser(request);

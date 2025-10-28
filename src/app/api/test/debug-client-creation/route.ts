@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { clients, centralizedSequences as sequences } from '@/db/schema';
+import { clients, sequences } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {

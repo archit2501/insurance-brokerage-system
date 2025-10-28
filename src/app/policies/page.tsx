@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PolicyStatusBadge, StatusFilter } from "@/components/PolicyStatusBadge";
 
 type Policy = {
   id: number;
@@ -16,20 +17,49 @@ type Policy = {
   periodFrom: string;
   periodTo: string;
   sumInsured: number;
+  rate?: number;
   grossPremium: number;
   currency: string;
   status: string;
+  autoExpired?: boolean;
 };
 
 export default function PoliciesPage() {
   const router = useRouter();
   const [policies, setPolicies] = useState<Policy[]>([]);
+  const [filteredPolicies, setFilteredPolicies] = useState<Policy[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     load();
   }, []);
+
+  useEffect(() => {
+    // Apply status filter
+    if (statusFilter === "all") {
+      setFilteredPolicies(policies);
+    } else {
+      const filtered = policies.filter(p => {
+        const today = new Date();
+        const endDate = new Date(p.periodTo);
+        const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (statusFilter === "active") {
+          return p.status === "active" && daysUntilExpiry > 30;
+        } else if (statusFilter === "expiring-soon") {
+          return p.status === "active" && daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+        } else if (statusFilter === "expired") {
+          return p.status === "expired" || (p.status === "active" && daysUntilExpiry <= 0);
+        } else if (statusFilter === "pending") {
+          return p.status === "pending";
+        }
+        return true;
+      });
+      setFilteredPolicies(filtered);
+    }
+  }, [policies, statusFilter]);
 
   async function load() {
     setLoading(true);
@@ -41,13 +71,60 @@ export default function PoliciesPage() {
       });
       if (!res.ok) throw new Error("Failed to load policies");
       const data = await res.json();
-      setPolicies(data.policies || []);
+      // API returns array directly with nested objects
+      const policiesData = Array.isArray(data) ? data : (data.policies || []);
+      
+      // Map API response to component format
+      const mapped = policiesData.map((p: any) => ({
+        id: p.id,
+        policyNumber: p.policyNumber,
+        clientId: p.clientId,
+        clientName: p.client?.companyName || `Client #${p.clientId}`,
+        insurerId: p.insurerId,
+        insurerName: p.insurer?.companyName || p.insurer?.shortName || `Insurer #${p.insurerId}`,
+        lobId: p.lobId,
+        lobName: p.lob?.name || `LOB #${p.lobId}`,
+        periodFrom: p.policyStartDate,
+        periodTo: p.policyEndDate,
+        sumInsured: p.sumInsured,
+        rate: p.rate,
+        grossPremium: p.grossPremium,
+        currency: p.currency,
+        status: p.status,
+        autoExpired: p.autoExpired
+      }));
+      
+      setPolicies(mapped);
     } catch (e: any) {
       setError(e.message || "Error loading policies");
     } finally {
       setLoading(false);
     }
   }
+
+  // Calculate status counts
+  const statusCounts = {
+    all: policies.length,
+    active: policies.filter(p => {
+      const today = new Date();
+      const endDate = new Date(p.periodTo);
+      const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return p.status === "active" && daysUntilExpiry > 30;
+    }).length,
+    expiringSoon: policies.filter(p => {
+      const today = new Date();
+      const endDate = new Date(p.periodTo);
+      const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return p.status === "active" && daysUntilExpiry <= 30 && daysUntilExpiry > 0;
+    }).length,
+    expired: policies.filter(p => {
+      const today = new Date();
+      const endDate = new Date(p.periodTo);
+      const daysUntilExpiry = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      return p.status === "expired" || (p.status === "active" && daysUntilExpiry <= 0);
+    }).length,
+    pending: policies.filter(p => p.status === "pending").length,
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -75,11 +152,26 @@ export default function PoliciesPage() {
           </div>
         )}
 
+        {/* Status Filter */}
+        {!loading && policies.length > 0 && (
+          <div className="mb-6">
+            <StatusFilter
+              currentFilter={statusFilter}
+              onFilterChange={setStatusFilter}
+              counts={statusCounts}
+            />
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-10 text-muted-foreground">Loading policies...</div>
         ) : policies.length === 0 ? (
           <div className="text-center py-10 text-muted-foreground">
             No policies found. Create your first policy to get started.
+          </div>
+        ) : filteredPolicies.length === 0 ? (
+          <div className="text-center py-10 text-muted-foreground">
+            No policies match the selected filter.
           </div>
         ) : (
           <div className="border border-border rounded-lg overflow-hidden">
@@ -91,13 +183,14 @@ export default function PoliciesPage() {
                   <th className="px-4 py-3 text-left text-sm font-medium">Insurer</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">LOB</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Period</th>
+                  <th className="px-4 py-3 text-right text-sm font-medium">Rate</th>
                   <th className="px-4 py-3 text-right text-sm font-medium">Premium</th>
                   <th className="px-4 py-3 text-left text-sm font-medium">Status</th>
                   <th className="px-4 py-3 text-right text-sm font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {policies.map((p) => (
+                {filteredPolicies.map((p) => (
                   <tr key={p.id} className="border-t border-border hover:bg-accent/50">
                     <td className="px-4 py-3 text-sm">{p.policyNumber}</td>
                     <td className="px-4 py-3 text-sm">{p.clientName || `Client #${p.clientId}`}</td>
@@ -107,16 +200,18 @@ export default function PoliciesPage() {
                       {new Date(p.periodFrom).toLocaleDateString()} - {new Date(p.periodTo).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
+                      {p.rate ? `${p.rate}%` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-right">
                       {p.currency} {p.grossPremium.toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        p.status === 'Active' ? 'bg-green-100 text-green-800' :
-                        p.status === 'Expired' ? 'bg-red-100 text-red-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {p.status}
-                      </span>
+                      <PolicyStatusBadge
+                        status={p.status}
+                        policyEndDate={p.periodTo}
+                        autoExpired={p.autoExpired}
+                        size="sm"
+                      />
                     </td>
                     <td className="px-4 py-3 text-sm text-right">
                       <Link

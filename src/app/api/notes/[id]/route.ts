@@ -45,10 +45,12 @@ function recalculateFinancials(note: any, updates: any = {}) {
   };
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
     
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
@@ -132,10 +134,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
     
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 

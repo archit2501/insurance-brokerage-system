@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl:*)",
+      "Bash(start test-cn.pdf)",
+      "Bash(npm run build:*)",
+      "Bash(vercel build:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

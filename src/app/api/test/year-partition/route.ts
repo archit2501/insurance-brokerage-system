@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { centralizedSequences as sequences, clientSequences, users } from '@/db/schema';
+import { sequences, clientSequences, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // Helper function to pad sequence number with leading zeros

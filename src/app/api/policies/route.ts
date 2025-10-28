@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { policies, clients, insurers, lobs, subLobs, rfqs, users } from '@/db/schema';
-import { eq, like, and, or, desc, asc, sql } from 'drizzle-orm';
+import { eq, like, and, or, desc, asc, sql, isNotNull } from 'drizzle-orm';
 import { nextEntityCode } from '../_lib/sequences';
 import { authenticateToken, requireRole, VALID_ROLES, authenticateRequest } from '@/app/api/_lib/auth';
 
@@ -62,13 +62,14 @@ export async function GET(request: NextRequest) {
     }
     
     const searchParams = request.nextUrl.searchParams;
-    
+
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || '';
     const clientId = searchParams.get('client_id') || '';
     const insurerId = searchParams.get('insurer_id') || '';
+    const hasSlip = searchParams.get('has_slip') === 'true';
 
     let query = db.select({
       id: policies.id,
@@ -84,6 +85,12 @@ export async function GET(request: NextRequest) {
       policyEndDate: policies.policyEndDate,
       confirmationDate: policies.confirmationDate,
       status: policies.status,
+      slipNumber: policies.slipNumber,
+      slipStatus: policies.slipStatus,
+      slipGeneratedAt: policies.slipGeneratedAt,
+      slipValidUntil: policies.slipValidUntil,
+      submittedToInsurerAt: policies.submittedToInsurerAt,
+      insurerResponseAt: policies.insurerResponseAt,
       createdAt: policies.createdAt,
       updatedAt: policies.updatedAt,
       client: {
@@ -147,6 +154,10 @@ export async function GET(request: NextRequest) {
     
     if (insurerId) {
       conditions.push(eq(policies.insurerId, parseInt(insurerId)));
+    }
+
+    if (hasSlip) {
+      conditions.push(isNotNull(policies.slipNumber));
     }
 
     if (conditions.length > 0) {
@@ -345,8 +356,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user ID from headers for audit tracking
+    // Note: Better-auth uses string UUIDs, but policies.created_by is INTEGER
+    // For now, we'll set it to null if it's a string UUID (better-auth user)
     const userIdHeader = request.headers.get('x-user-id');
-    const createdBy = userIdHeader ? parseInt(userIdHeader) : null;
+    let createdBy: number | null = null;
+    
+    if (userIdHeader) {
+      const parsedUserId = parseInt(userIdHeader, 10);
+      // Only use the ID if it's a valid finite number (old users table)
+      // String UUIDs from better-auth will result in NaN, which we'll treat as null
+      if (!isNaN(parsedUserId) && isFinite(parsedUserId)) {
+        createdBy = parsedUserId;
+      }
+      // If it's a string UUID (better-auth), createdBy remains null
+      // This is acceptable for UAT as the system supports both auth systems
+    }
 
     // Create policy with validated minimum premium
     const newPolicy = await db.insert(policies)

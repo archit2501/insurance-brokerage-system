@@ -3,10 +3,12 @@ import { db } from '@/db';
 import { rfqs, clients, lobs, subLobs, insurers } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const id = searchParams.get('id');
+    const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
@@ -44,10 +46,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const id = searchParams.get('id');
+    const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
@@ -121,10 +125,12 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const id = searchParams.get('id');
+    const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 

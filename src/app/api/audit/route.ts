@@ -72,17 +72,16 @@ export async function GET(request: NextRequest) {
       conditions.push(lte(auditLogs.createdAt, toDateTime));
     }
     
-    // Apply all conditions, ordering, and pagination in one go
-    const results = conditions.length > 0
-      ? await query
-          .where(and(...conditions))
-          .orderBy(desc(auditLogs.createdAt))
-          .limit(limit)
-          .offset(offset)
-      : await query
-          .orderBy(desc(auditLogs.createdAt))
-          .limit(limit)
-          .offset(offset);
+    // Apply all conditions
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions)) as typeof query;
+    }
+
+    // Order by createdAt DESC (most recent first)
+    query = query.orderBy(desc(auditLogs.createdAt)) as typeof query;
+
+    // Apply pagination
+    const results = await query.limit(limit).offset(offset);
     
     return NextResponse.json(results);
     

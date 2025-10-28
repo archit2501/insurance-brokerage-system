@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { notes } from '@/db/schema';
+import { notes, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import { requireApprovalLevel } from '@/app/api/_lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     // Enforce approval level >= L2 via header-based RBAC helper
-    const approvalCheck = requireApprovalLevel(request, 2);
+    const approvalCheck = await requireApprovalLevel(request, 2);
     if (!approvalCheck.success) return approvalCheck.response;
 
     const user = await getCurrentUser(request);
@@ -16,8 +19,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const noteId = searchParams.get('id');
+    console.log('DEBUG APPROVE - user:', user);
+
+    const { id } = await params;
+    const noteId = id;
 
     if (!noteId || isNaN(parseInt(noteId))) {
       return NextResponse.json({ 
@@ -50,12 +55,32 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Update note status to 'Approved' and set authorizedBy
+    // Look up user by email to get integer ID
+    let authorizedBy: number | null = null;
+    const userEmail = user.email;
+    console.log('DEBUG APPROVE - user email:', userEmail);
+
+    if (userEmail) {
+      const userResult = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, userEmail))
+        .limit(1);
+
+      if (userResult.length > 0) {
+        authorizedBy = userResult[0].id;
+        console.log('DEBUG APPROVE - Found user by email, authorizedBy set to:', authorizedBy);
+      } else {
+        console.log('DEBUG APPROVE - No user found with email:', userEmail);
+      }
+    } else {
+      console.log('DEBUG APPROVE - No email in user object');
+    }
+
     const updatedNotes = await db
       .update(notes)
       .set({
         status: 'Approved',
-        authorizedBy: user.id,
+        authorizedBy: authorizedBy,
         updatedAt: new Date().toISOString()
       })
       .where(eq(notes.id, parseInt(noteId)))

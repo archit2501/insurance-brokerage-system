@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { clients, centralizedSequences as sequences, users } from '@/db/schema';
+import { clients, sequences, users } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // Simple auth helper for test route
@@ -188,16 +188,16 @@ export async function POST(request: NextRequest) {
     
     const currentYear = year || new Date().getFullYear();
     const generatedCodes: string[] = [];
-    
+
     // Test sequence reset between different years
     if (year && year !== new Date().getFullYear()) {
       // Generate code for current year
       const currentYearCode = await generateClientCode();
-      generatedCodes.push({ type: 'current_year', code: currentYearCode });
-      
+      generatedCodes.push(currentYearCode);
+
       // Generate code for specified year (should start at 00001)
       const specifiedYearCode = await generateClientCode(year);
-      generatedCodes.push({ type: 'specified_year', code: specifiedYearCode });
+      generatedCodes.push(specifiedYearCode);
       
       // Verify different years reset sequence
       const currentSeq = parseInt(currentYearCode.split('/').pop() || '0');

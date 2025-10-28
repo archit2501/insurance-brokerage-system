@@ -1,0 +1,162 @@
+
+> app@0.1.0 dev
+> next dev --turbopack
+
+ ⚠ Port 3000 is in use, using available port 3001 instead.
+   ▲ Next.js 15.3.5 (Turbopack)
+   - Local:        http://localhost:3001
+   - Network:      http://10.153.154.53:3001
+   - Environments: .env
+
+ ✓ Starting...
+ ○ Compiling middleware ...
+ ✓ Compiled middleware in 838ms
+ ✓ Ready in 2.8s
+ ○ Compiling / ...
+ ✓ Compiled / in 2.9s
+ GET / 200 in 3372ms
+ GET / 200 in 185ms
+ ○ Compiling /api/auth/[...all] ...
+ ✓ Compiled /api/auth/[...all] in 1026ms
+ GET /api/auth/get-session 200 in 3350ms
+ GET /api/auth/get-session 200 in 210ms
+ ○ Compiling /broking-slips ...
+ ✓ Compiled /broking-slips in 667ms
+ GET /broking-slips 200 in 732ms
+ ○ Compiling /api/policies ...
+ ✓ Compiled /api/policies in 819ms
+ GET /api/policies?has_slip=true&limit=100 200 in 1368ms
+ GET /api/policies?has_slip=true&limit=100 200 in 270ms
+ ○ Compiling /api/policies/[id]/broking-slip ...
+ ✓ Compiled /api/policies/[id]/broking-slip in 948ms
+Error: Route "/api/policies/[id]/broking-slip" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (src\app\api\policies\[id]\broking-slip\route.ts:414:37)
+  412 | ) {
+  413 |   try {
+> 414 |     const policyId = parseInt(params.id);
+      |                                     ^
+  415 |
+  416 |     if (isNaN(policyId)) {
+  417 |       return NextResponse.json(
+Error generating broking slip PDF: Error: Failed query: select "id", "policy_id", "sl_no", "item_type", "description", "details", "value", "no_of_units", "sum_insured", "max_liability", "aoa_amount", "aoy_amount", "gross_profit", "net_profit", "standing_charges", "auditor_fees", "increased_cost_of_working", "indemnity_period_months", "rate", "premium", "created_at", "updated_at" from "policy_property_items" where "policy_property_items"."policy_id" = ? order by "policy_property_items"."sl_no" asc
+params: 8
+    at async GET (src\app\api\policies\[id]\broking-slip\route.ts:457:32)
+  455 |
+  456 |     // Fetch property items
+> 457 |     const propertyItemsResult = await db.select()
+      |                                ^
+  458 |       .from(policyPropertyItems)
+  459 |       .where(eq(policyPropertyItems.policyId, policyId))
+  460 |       .orderBy(asc(policyPropertyItems.slNo)); {
+  query: 'select "id", "policy_id", "sl_no", "item_type", "description", "details", "value", "no_of_units", "sum_insured", "max_liability", "aoa_amount", "aoy_amount", "gross_profit", "net_profit", "standing_charges", "auditor_fees", "increased_cost_of_working", "indemnity_period_months", "rate", "premium", "created_at", "updated_at" from "policy_property_items" where "policy_property_items"."policy_id" = ? order by "policy_property_items"."sl_no" asc',
+  params: [Array],
+  [cause]: Error [LibsqlError]: SQLITE_UNKNOWN: SQLite error: no such table: policy_property_items
+      at async GET (src\app\api\policies\[id]\broking-slip\route.ts:457:32)
+    455 |
+    456 |     // Fetch property items
+  > 457 |     const propertyItemsResult = await db.select()
+        |                                ^
+    458 |       .from(policyPropertyItems)
+    459 |       .where(eq(policyPropertyItems.policyId, policyId))
+    460 |       .orderBy(asc(policyPropertyItems.slNo)); {
+    code: 'SQLITE_UNKNOWN',
+    rawCode: undefined,
+    [cause]: [Error [ResponseError]: SQLite error: no such table: policy_property_items] {
+      code: 'SQLITE_UNKNOWN',
+      proto: {
+        message: 'SQLite error: no such table: policy_property_items',
+        code: 'SQLITE_UNKNOWN'
+      }
+    }
+  }
+}
+ GET /api/policies/8/broking-slip 500 in 3022ms
+ GET /broking-slips 200 in 144ms
+ GET /api/auth/get-session 200 in 415ms
+ GET /api/policies?has_slip=true&limit=100 200 in 632ms
+ GET /broking-slips 200 in 130ms
+ GET /api/auth/get-session 200 in 258ms
+ GET /api/policies?has_slip=true&limit=100 200 in 308ms
+Error: Route "/api/policies/[id]/broking-slip" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (src\app\api\policies\[id]\broking-slip\route.ts:414:37)
+  412 | ) {
+  413 |   try {
+> 414 |     const policyId = parseInt(params.id);
+      |                                     ^
+  415 |
+  416 |     if (isNaN(policyId)) {
+  417 |       return NextResponse.json(
+ GET /api/policies/8/broking-slip 200 in 842ms
+ GET /broking-slips 200 in 130ms
+ GET /api/auth/get-session 200 in 463ms
+ GET /api/policies?has_slip=true&limit=100 200 in 660ms
+ GET /broking-slips 200 in 142ms
+ GET /api/auth/get-session 200 in 276ms
+ GET /api/policies?has_slip=true&limit=100 200 in 353ms
+Error: Route "/api/policies/[id]/broking-slip" used `params.id`. `params` should be awaited before using its properties. Learn more: https://nextjs.org/docs/messages/sync-dynamic-apis
+    at GET (src\app\api\policies\[id]\broking-slip\route.ts:414:37)
+  412 | ) {
+  413 |   try {
+> 414 |     const policyId = parseInt(params.id);
+      |                                     ^
+  415 |
+  416 |     if (isNaN(policyId)) {
+  417 |       return NextResponse.json(
+ GET /api/policies/8/broking-slip 200 in 1400ms
+ GET /broking-slips 200 in 386ms
+ GET /api/auth/get-session 200 in 998ms
+ GET /api/policies?has_slip=true&limit=100 200 in 1073ms
+ ○ Compiling /notes ...
+ ✓ Compiled /notes in 1296ms
+ GET /notes 200 in 1395ms
+ GET /api/auth/get-session 200 in 297ms
+ GET /api/auth/get-session 200 in 409ms
+ ○ Compiling /api/clients ...
+ GET /api/policies?limit=200 200 in 530ms
+ GET /api/policies?limit=200 200 in 495ms
+ GET /api/notes?limit=50 401 in 1492ms
+ GET /api/notes?limit=50 401 in 168ms
+ GET /notes 200 in 310ms
+ ✓ Compiled /api/clients in 2.1s
+ GET /api/auth/get-session 200 in 490ms
+ GET /notes 200 in 295ms
+ GET /api/auth/get-session 200 in 433ms
+ GET /api/notes?limit=50 401 in 388ms
+ GET /api/auth/get-session 200 in 823ms
+ GET /api/insurers?limit=200 200 in 931ms
+ GET /api/clients?limit=200 200 in 1033ms
+ GET /api/policies?limit=200 200 in 1115ms
+ GET /api/notes?limit=50 200 in 613ms
+ GET /api/insurers?limit=200 200 in 707ms
+ GET /api/policies?limit=200 200 in 807ms
+ GET /api/clients?limit=200 200 in 865ms
+ ○ Compiling /pdf/[...slug] ...
+ ✓ Compiled /pdf/[...slug] in 1364ms
+ GET /pdf/credit-note/9 200 in 3970ms
+ ○ Compiling /users ...
+ ✓ Compiled /users in 1226ms
+ GET /users 200 in 1346ms
+ ○ Compiling /api/users ...
+ ✓ Compiled /api/users in 842ms
+ GET /api/users 200 in 1279ms
+ GET /api/users 200 in 298ms
+ GET /notes 200 in 356ms
+ GET /api/auth/get-session 200 in 723ms
+ GET /api/notes?limit=50 401 in 416ms
+ GET /api/clients?limit=200 200 in 712ms
+ GET /api/auth/get-session 200 in 763ms
+ GET /api/insurers?limit=200 200 in 948ms
+ GET /api/policies?limit=200 200 in 978ms
+ GET /api/notes?limit=50 401 in 271ms
+ GET /api/clients?limit=200 200 in 498ms
+ GET /api/insurers?limit=200 200 in 506ms
+ GET /api/policies?limit=200 200 in 520ms
+ GET /api/notes?limit=50 200 in 455ms
+ GET /api/clients?limit=200 200 in 529ms
+ GET /api/insurers?limit=200 200 in 599ms
+ GET /api/policies?limit=200 200 in 636ms
+ GET /api/notes?limit=50 200 in 647ms
+ GET /api/clients?limit=200 200 in 692ms
+ GET /api/insurers?limit=200 200 in 696ms
+ GET /api/policies?limit=200 200 in 799ms
+ GET /pdf/credit-note/12 200 in 900ms

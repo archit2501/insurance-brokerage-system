@@ -36,10 +36,12 @@ async function getApplicableMinPremium(lobId: number, subLobId?: number | null):
   return minPremium;
 }
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
@@ -61,6 +63,8 @@ export async function GET(request: NextRequest) {
         policyEndDate: policies.policyEndDate,
         confirmationDate: policies.confirmationDate,
         status: policies.status,
+        renewedFromPolicyId: policies.renewedFromPolicyId,
+        renewedToPolicyId: policies.renewedToPolicyId,
         createdAt: policies.createdAt,
         updatedAt: policies.updatedAt,
         
@@ -107,19 +111,28 @@ export async function GET(request: NextRequest) {
       .innerJoin(clients, eq(policies.clientId, clients.id))
       .innerJoin(insurers, eq(policies.insurerId, insurers.id))
       .innerJoin(lobs, eq(policies.lobId, lobs.id))
-      .innerJoin(subLobs, eq(policies.subLobId, subLobs.id))
+      .leftJoin(subLobs, eq(policies.subLobId, subLobs.id))
       .leftJoin(rfqs, eq(policies.rfqId, rfqs.id))
       .where(eq(policies.id, policyId))
       .limit(1);
 
     if (results.length === 0) {
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: 'Policy not found',
         code: 'POLICY_NOT_FOUND'
       }, { status: 404 });
     }
 
-    return NextResponse.json(results[0]);
+    const policy = results[0];
+    // Calculate rate if sumInsured is available
+    const rate = policy.sumInsured && policy.sumInsured > 0
+      ? (policy.grossPremium / policy.sumInsured) * 100
+      : null;
+
+    return NextResponse.json({
+      ...policy,
+      rate
+    });
   } catch (error) {
     console.error('GET policy error:', error);
     return NextResponse.json({ 
@@ -129,10 +142,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const { id } = await params;
 
     if (!id || isNaN(parseInt(id))) {
       return NextResponse.json({ 
@@ -208,9 +223,9 @@ export async function PUT(request: NextRequest) {
 
       // Enforce minimum premium rule for gross premium updates
       try {
-        const minPremium = await getApplicableMinPremium(policy.lobId, policy.subLobId);
+        const minPremium = await getApplicableMinPremium(policy.lobId, policy.subLobId ?? undefined);
         if (grossPremium < minPremium) {
-          return NextResponse.json({ 
+          return NextResponse.json({
             error: 'Gross premium below minimum for selected LOB/Sub-LOB',
             code: 'BELOW_MIN_PREMIUM',
             minPremium: minPremium,
@@ -218,7 +233,7 @@ export async function PUT(request: NextRequest) {
           }, { status: 422 });
         }
       } catch (error) {
-        return NextResponse.json({ 
+        return NextResponse.json({
           error: 'Unable to validate minimum premium',
           code: 'MIN_PREMIUM_CHECK_FAILED'
         }, { status: 500 });

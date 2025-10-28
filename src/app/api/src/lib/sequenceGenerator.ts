@@ -1,5 +1,5 @@
 import { db } from '@/db';
-import { centralizedSequences as sequences, clientSequences } from '@/db/schema';
+import { sequences, clientSequences } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 export interface SequenceGenerationError extends Error {

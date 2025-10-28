@@ -12,6 +12,12 @@ const client = createClient({
 
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
+    }
+    
     const searchParams = request.nextUrl.searchParams;
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');

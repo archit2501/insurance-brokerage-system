@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession, authClient } from "@/lib/auth-client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Menu, X, LogOut, User } from "lucide-react";
 
 const NavBar = () => {
@@ -27,13 +27,18 @@ const NavBar = () => {
   };
 
   const navLinks = [
+    { href: "/dashboard", label: "Dashboard" },
     { href: "/clients", label: "Clients" },
     { href: "/agents", label: "Agents" },
     { href: "/insurers", label: "Insurers" },
     { href: "/banks", label: "Banks" },
     { href: "/lobs", label: "LOBs" },
     { href: "/policies", label: "Policies" },
+    { href: "/policies/import", label: "📥 Import" },
+    { href: "/renewals", label: "🔄 Renewals" },
+    { href: "/broking-slips", label: "Broking Slips" },
     { href: "/notes", label: "CN/DN" },
+    { href: "/claims", label: "🛡️ Claims" },
     { href: "/users", label: "Users" },
   ];
 

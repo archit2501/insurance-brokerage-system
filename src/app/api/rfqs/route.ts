@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { rfqs, clients, lobs, subLobs, users } from '@/db/schema';
 import { eq, like, and, or, desc, asc, sql } from 'drizzle-orm';
+import { authenticateRequest } from '@/app/api/_lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
+    }
+    
     const searchParams = request.nextUrl.searchParams;
     const limit = Math.min(parseInt(searchParams.get('limit') || '10'), 100);
     const offset = parseInt(searchParams.get('offset') || '0');
@@ -90,6 +97,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Require authentication
+    const authResult = await authenticateRequest(request);
+    if (!authResult.success) {
+      return authResult.response;
+    }
+    
     const body = await request.json();
     const {
       clientId,

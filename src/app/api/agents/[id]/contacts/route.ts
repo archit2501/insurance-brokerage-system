@@ -23,13 +23,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    const { id } = await params;
     const agentId = parseInt(id);
     if (isNaN(agentId)) {
       return NextResponse.json(
@@ -71,7 +71,6 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
   try {
     const user = getCurrentUser(request);
     if (!user) {
@@ -87,6 +86,7 @@ export async function POST(
     //   );
     // }
 
+    const { id } = await params;
     const agentId = parseInt(id);
     if (isNaN(agentId)) {
       return NextResponse.json(
@@ -204,9 +204,9 @@ export async function POST(
     const now = new Date().toISOString();
     const insertData = {
       agentId,
-      fullName,
+      fullName: fullName.trim(),
       designation: designation?.trim() || null,
-      email: email?.trim() || null,
+      email: email?.toLowerCase().trim() || null,
       phone: phone?.trim() || null,
       isPrimary: isPrimaryValue,
       status: status || 'active',

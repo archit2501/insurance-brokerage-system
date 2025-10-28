@@ -15,7 +15,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: endorsementIdStr } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -26,7 +26,8 @@ export async function GET(
     // Get user info from headers (simplified for testing)
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    if (!id || isNaN(parseInt(id))) {
+    const endorsementId = parseInt(endorsementIdStr);
+    if (!endorsementIdStr || isNaN(endorsementId)) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
         code: 'INVALID_ID'
@@ -37,7 +38,7 @@ export async function GET(
     const endorsement = await db
       .select()
       .from(endorsements)
-      .where(eq(endorsements.id, parseInt(id)))
+      .where(eq(endorsements.id, endorsementId))
       .limit(1);
 
     if (endorsement.length === 0) {
@@ -45,6 +46,11 @@ export async function GET(
     }
 
     const endorsementData = endorsement[0];
+
+    // Check if policyId exists
+    if (!endorsementData.policyId) {
+      return NextResponse.json({ error: 'Endorsement missing policy ID' }, { status: 400 });
+    }
 
     // Get policy details
     const policyData = await db
@@ -69,7 +75,7 @@ export async function GET(
     // Get LOB details
     let lobData = null;
     let subLobData = null;
-    if (policyData.length > 0) {
+    if (policyData.length > 0 && policyData[0].lobId) {
       const lobResult = await db.select()
         .from(lobs)
         .where(eq(lobs.id, policyData[0].lobId))
@@ -137,7 +143,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: endorsementIdStr } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -149,7 +155,8 @@ export async function PUT(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    if (!id || isNaN(parseInt(id))) {
+    const endorsementId = parseInt(endorsementIdStr);
+    if (!endorsementIdStr || isNaN(endorsementId)) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
         code: 'INVALID_ID'
@@ -270,7 +277,7 @@ export async function PUT(
     const currentEndorsement = await db
       .select()
       .from(endorsements)
-      .where(eq(endorsements.id, parseInt(id)))
+      .where(eq(endorsements.id, endorsementId))
       .limit(1);
 
     if (currentEndorsement.length === 0) {
@@ -318,7 +325,7 @@ export async function PUT(
     const updatedEndorsement = await db
       .update(endorsements)
       .set(updates)
-      .where(eq(endorsements.id, parseInt(id)))
+      .where(eq(endorsements.id, endorsementId))
       .returning();
 
     if (updatedEndorsement.length === 0) {
@@ -338,7 +345,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: endorsementIdStr } = await params;
   try {
     // Simple auth check
     const authHeader = request.headers.get('authorization');
@@ -350,7 +357,8 @@ export async function DELETE(
     const userRole = request.headers.get('x-role') || 'Viewer';
     const userId = parseInt(request.headers.get('x-user-id') || '1');
 
-    if (!id || isNaN(parseInt(id))) {
+    const endorsementId = parseInt(endorsementIdStr);
+    if (!endorsementIdStr || isNaN(endorsementId)) {
       return NextResponse.json({ 
         error: 'Valid ID is required',
         code: 'INVALID_ID'
@@ -361,7 +369,7 @@ export async function DELETE(
     const currentEndorsement = await db
       .select()
       .from(endorsements)
-      .where(eq(endorsements.id, parseInt(id)))
+      .where(eq(endorsements.id, endorsementId))
       .limit(1);
 
     if (currentEndorsement.length === 0) {
@@ -391,7 +399,7 @@ export async function DELETE(
 
     const deletedEndorsement = await db
       .delete(endorsements)
-      .where(eq(endorsements.id, parseInt(id)))
+      .where(eq(endorsements.id, endorsementId))
       .returning();
 
     return NextResponse.json({

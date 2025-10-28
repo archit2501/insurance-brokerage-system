@@ -96,7 +96,18 @@ export async function GET(request: NextRequest) {
       .offset(offset)
       .orderBy(desc(insurers.createdAt));
 
-    return NextResponse.json(results);
+    // Parse JSON fields for frontend
+    const parsedResults = results.map(insurer => ({
+      ...insurer,
+      acceptedLobs: typeof insurer.acceptedLobs === 'string' 
+        ? JSON.parse(insurer.acceptedLobs || '[]') 
+        : (insurer.acceptedLobs || []),
+      specialLobs: typeof insurer.specialLobs === 'string' 
+        ? JSON.parse(insurer.specialLobs || '[]') 
+        : (insurer.specialLobs || [])
+    }));
+
+    return NextResponse.json(parsedResults);
   } catch (error) {
     console.error('GET insurers error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -238,6 +249,10 @@ export async function POST(request: NextRequest) {
 
     // Audit log
     if (createdByUserId) {
+      const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown';
+
       await db.insert(auditLogs).values({
         tableName: 'insurers',
         recordId: newInsurer[0].id,
@@ -245,13 +260,24 @@ export async function POST(request: NextRequest) {
         oldValues: null,
         newValues: newInsurer[0],
         userId: createdByUserId,
-        ipAddress: request.ip,
+        ipAddress,
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString()
       });
     }
 
-    return NextResponse.json(newInsurer[0], { status: 201 });
+    // Parse JSON fields before returning
+    const responseInsurer = {
+      ...newInsurer[0],
+      acceptedLobs: typeof newInsurer[0].acceptedLobs === 'string' 
+        ? JSON.parse(newInsurer[0].acceptedLobs || '[]') 
+        : (newInsurer[0].acceptedLobs || []),
+      specialLobs: typeof newInsurer[0].specialLobs === 'string' 
+        ? JSON.parse(newInsurer[0].specialLobs || '[]') 
+        : (newInsurer[0].specialLobs || [])
+    };
+
+    return NextResponse.json(responseInsurer, { status: 201 });
   } catch (error) {
     console.error('POST insurer error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -415,6 +441,10 @@ export async function PUT(request: NextRequest) {
 
     // Audit log
     if (currentUserId) {
+      const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown';
+
       await db.insert(auditLogs).values({
         tableName: 'insurers',
         recordId: parseInt(id),
@@ -422,13 +452,24 @@ export async function PUT(request: NextRequest) {
         oldValues: current,
         newValues: updated[0],
         userId: parseInt(currentUserId),
-        ipAddress: request.ip,
+        ipAddress,
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString()
       });
     }
 
-    return NextResponse.json(updated[0]);
+    // Parse JSON fields before returning
+    const responseInsurer = {
+      ...updated[0],
+      acceptedLobs: typeof updated[0].acceptedLobs === 'string' 
+        ? JSON.parse(updated[0].acceptedLobs || '[]') 
+        : (updated[0].acceptedLobs || []),
+      specialLobs: typeof updated[0].specialLobs === 'string' 
+        ? JSON.parse(updated[0].specialLobs || '[]') 
+        : (updated[0].specialLobs || [])
+    };
+
+    return NextResponse.json(responseInsurer);
   } catch (error) {
     console.error('PUT insurer error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -479,6 +520,10 @@ export async function DELETE(request: NextRequest) {
 
     // Audit log
     if (currentUserId) {
+      const ipAddress = request.headers.get('x-forwarded-for')?.split(',')[0] ||
+                       request.headers.get('x-real-ip') ||
+                       'unknown';
+
       await db.insert(auditLogs).values({
         tableName: 'insurers',
         recordId: parseInt(id),
@@ -486,7 +531,7 @@ export async function DELETE(request: NextRequest) {
         oldValues: existingInsurer[0],
         newValues: deleted[0],
         userId: parseInt(currentUserId),
-        ipAddress: request.ip,
+        ipAddress,
         userAgent: request.headers.get('user-agent'),
         createdAt: new Date().toISOString()
       });

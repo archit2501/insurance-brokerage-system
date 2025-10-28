@@ -7,9 +7,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: lobIdStr } = await params;
+  const lobId = parseInt(lobIdStr);
 
-  if (!id || isNaN(parseInt(id))) {
+  if (!lobIdStr || isNaN(lobId)) {
     return NextResponse.json({ 
       error: "Valid ID is required",
       code: "INVALID_ID" 
@@ -19,7 +20,7 @@ export async function GET(
   try {
     const record = await db.select()
       .from(lobs)
-      .where(eq(lobs.id, parseInt(id)))
+      .where(eq(lobs.id, lobId))
       .limit(1);
 
     if (record.length === 0) {
@@ -39,9 +40,10 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: lobIdStr } = await params;
+  const lobId = parseInt(lobIdStr);
 
-  if (!id || isNaN(parseInt(id))) {
+  if (!lobIdStr || isNaN(lobId)) {
     return NextResponse.json({ 
       error: "Valid ID is required",
       code: "INVALID_ID" 
@@ -89,7 +91,7 @@ export async function PUT(
     // Check if record exists
     const existingRecord = await db.select()
       .from(lobs)
-      .where(eq(lobs.id, parseInt(id)))
+      .where(eq(lobs.id, lobId))
       .limit(1);
 
     if (existingRecord.length === 0) {
@@ -115,7 +117,7 @@ export async function PUT(
         .from(lobs)
         .where(and(
           eq(lobs.name, trimmedName),
-          ne(lobs.id, parseInt(id))
+          ne(lobs.id, lobId)
         ))
         .limit(1);
 
@@ -191,7 +193,7 @@ export async function PUT(
 
     const updated = await db.update(lobs)
       .set(updateData)
-      .where(eq(lobs.id, parseInt(id)))
+      .where(eq(lobs.id, lobId))
       .returning();
 
     if (updated.length === 0) {
@@ -211,9 +213,10 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  const { id: lobIdStr } = await params;
+  const lobId = parseInt(lobIdStr);
 
-  if (!id || isNaN(parseInt(id))) {
+  if (!lobIdStr || isNaN(lobId)) {
     return NextResponse.json({ 
       error: "Valid ID is required",
       code: "INVALID_ID" 
@@ -227,7 +230,7 @@ export async function DELETE(
         status: 'inactive',
         updatedAt: new Date().toISOString()
       })
-      .where(eq(lobs.id, parseInt(id)))
+      .where(eq(lobs.id, lobId))
       .returning();
 
     if (deleted.length === 0) {

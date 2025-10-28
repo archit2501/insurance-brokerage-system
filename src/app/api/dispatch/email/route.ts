@@ -4,7 +4,8 @@ import { notes, insurerEmails, contacts, clients, policies, dispatchLogs, users,
 import { eq, and, or, inArray, sql, desc } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 import nodemailer from 'nodemailer';
-import PDFDocument from 'pdfkit';
+// @ts-ignore - pdfkit standalone doesn't have types but works in Node
+import PDFDocument from 'pdfkit/js/pdfkit.standalone';
 
 const VALID_INSURER_ROLES = ['underwriter', 'marketer', 'MD', 'ED', 'DGM', 'Head_of_RI', 'claims', 'technical'];
 
@@ -33,7 +34,7 @@ async function generateNotePdfBuffer({
     const doc = new PDFDocument({ size: 'A4', margin: 48 });
     const chunks: Buffer[] = [];
 
-    doc.on('data', (d) => chunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
+    doc.on('data', (d: Buffer | Uint8Array) => chunks.push(Buffer.isBuffer(d) ? d : Buffer.from(d)));
     doc.on('error', reject);
     doc.on('end', () => resolve(Buffer.concat(chunks)));
 
@@ -391,34 +392,36 @@ export async function POST(request: NextRequest) {
       // Create dispatch log
       const logEntry = await db.insert(dispatchLogs)
         .values({
-          noteId: note.id,
-          recipientEmails: recipientEmails,
+          noteId: typeof note.id === 'number' ? note.id : parseInt(String(note.id)),
+          recipientEmails: JSON.stringify(recipientEmails),
           subject: subject,
           status: 'sent',
           providerMessageId: providerMessageId,
-          sentBy: user.id,
+          sentBy: typeof user.id === 'number' ? user.id : parseInt(String(user.id)),
           sentAt: sentAt,
-          attachmentName: filename,
         })
         .returning();
 
       // Audit: record dispatch with channel and stored PDF hash
       const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '';
       const userAgent = request.headers.get('user-agent') || '';
+      const auditUserId = typeof user.id === 'number' ? user.id : parseInt(String(user.id));
+      const auditRecordId = typeof note.id === 'number' ? note.id : parseInt(String(note.id));
+
       await db.insert(auditLogs).values({
         tableName: 'dispatch',
-        recordId: note.id,
+        recordId: auditRecordId,
         action: 'DISPATCH',
-        oldValues: null,
-        newValues: JSON.stringify({
+        oldValues: null as any,
+        newValues: {
           channel: 'email',
           noteId: note.noteId,
           providerMessageId,
           recipients: recipientEmails,
           attachmentName: filename,
           sha256Hash: note.sha256Hash || null,
-        }),
-        userId: user.id,
+        } as any,
+        userId: auditUserId,
         ipAddress,
         userAgent,
         createdAt: sentAt,
@@ -437,12 +440,12 @@ export async function POST(request: NextRequest) {
       // Log failed dispatch attempt
       const failedLog = await db.insert(dispatchLogs)
         .values({
-          noteId: note.id,
-          recipientEmails: recipientEmails,
+          noteId: typeof note.id === 'number' ? note.id : parseInt(String(note.id)),
+          recipientEmails: JSON.stringify(recipientEmails),
           subject: subject || `${note.noteType} ${note.noteId}`,
           status: 'failed',
           errorMessage: error?.message || 'Unknown error',
-          sentBy: user.id,
+          sentBy: typeof user.id === 'number' ? user.id : parseInt(String(user.id)),
           sentAt: new Date().toISOString(),
         })
         .returning();
@@ -450,18 +453,21 @@ export async function POST(request: NextRequest) {
       // Audit failure as well
       const ipAddressFail = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || '';
       const userAgentFail = request.headers.get('user-agent') || '';
+      const failAuditUserId = typeof user.id === 'number' ? user.id : parseInt(String(user.id));
+      const failAuditRecordId = typeof note.id === 'number' ? note.id : parseInt(String(note.id));
+
       await db.insert(auditLogs).values({
         tableName: 'dispatch',
-        recordId: note.id,
+        recordId: failAuditRecordId,
         action: 'DISPATCH',
-        oldValues: null,
-        newValues: JSON.stringify({
+        oldValues: null as any,
+        newValues: {
           channel: 'email',
           noteId: note.noteId,
           status: 'failed',
           error: error?.message || 'Unknown error',
-        }),
-        userId: user.id,
+        } as any,
+        userId: failAuditUserId,
         ipAddress: ipAddressFail,
         userAgent: userAgentFail,
         createdAt: new Date().toISOString(),
