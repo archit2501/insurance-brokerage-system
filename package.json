@@ -102,7 +102,7 @@
     },
     "devDependencies": {
         "@eslint/eslintrc": "^3.3.1",
-        "@tailwindcss/postcss": "^4",
+        "@tailwindcss/postcss": "^4.1.16",
         "@types/node": "^20",
         "@types/nodemailer": "^6.4.17",
         "@types/pdfkit": "^0.13.5",
