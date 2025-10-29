@@ -54,6 +54,7 @@ export default function NotesPageEnhanced() {
   const [emailingId, setEmailingId] = useState<number | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const token = typeof window !== "undefined" ? localStorage.getItem("bearer_token") : null;
 
@@ -795,26 +796,58 @@ export default function NotesPageEnhanced() {
 
       {/* Notes List */}
       <div className="rounded-lg border border-border bg-card">
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Recent Notes ({notes.length})</h2>
-          <div className="flex items-center gap-3">
-            {loading && <div className="text-sm text-muted-foreground">Loading...</div>}
-            <button
-              onClick={loadAll}
-              className="text-sm px-3 py-1 rounded-lg border border-border hover:bg-secondary transition-colors"
-            >
-              🔄 Refresh
-            </button>
+        <div className="px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Recent Notes ({notes.length})</h2>
+            <div className="flex items-center gap-3">
+              {loading && <div className="text-sm text-muted-foreground">Loading...</div>}
+              <button
+                onClick={loadAll}
+                className="text-sm px-3 py-1 rounded-lg border border-border hover:bg-secondary transition-colors"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+          </div>
+          {/* Search Bar */}
+          <div>
+            <input
+              type="text"
+              placeholder="🔍 Search notes by ID, policy, or amount..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full border rounded-lg px-4 py-2 bg-background focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+            />
           </div>
         </div>
-        {notes.length === 0 ? (
+        {notes.filter(n => {
+          if (!searchTerm) return true;
+          const search = searchTerm.toLowerCase();
+          return (
+            n.noteId.toLowerCase().includes(search) ||
+            n.policyId.toString().includes(search) ||
+            n.grossPremium.toString().includes(search) ||
+            n.netAmountDue.toString().includes(search) ||
+            n.status.toLowerCase().includes(search)
+          );
+        }).length === 0 ? (
           <div className="p-6 text-center text-muted-foreground">
             <p className="mb-2">No notes yet.</p>
             <p className="text-xs">Create a credit note or debit note using the form above.</p>
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {notes.map((n) => (
+            {notes.filter(n => {
+              if (!searchTerm) return true;
+              const search = searchTerm.toLowerCase();
+              return (
+                n.noteId.toLowerCase().includes(search) ||
+                n.policyId.toString().includes(search) ||
+                n.grossPremium.toString().includes(search) ||
+                n.netAmountDue.toString().includes(search) ||
+                n.status.toLowerCase().includes(search)
+              );
+            }).map((n) => (
               <li key={n.id} className="px-6 py-4 hover:bg-secondary/50 transition-colors">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">

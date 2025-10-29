@@ -155,6 +155,20 @@ export async function POST(req: NextRequest) {
     const currentYear = new Date().getFullYear();
     const now = new Date().toISOString();
 
+    // Look up user by email to get integer ID for registeredBy field
+    let registeredBy: number | null = null;
+    const userEmail = session.user.email;
+    if (userEmail) {
+      const userResult = await db.select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, userEmail))
+        .limit(1);
+
+      if (userResult.length > 0) {
+        registeredBy = userResult[0].id;
+      }
+    }
+
     // Use transaction to generate claim number
     const created = await db.transaction(async (tx) => {
       // Get or create sequence
@@ -201,7 +215,7 @@ export async function POST(req: NextRequest) {
         closureReason: null,
         currency,
         exchangeRate: parseFloat(String(exchangeRate)),
-        registeredBy: parseInt(session.user.id),
+        registeredBy,
         approvedBy: null,
         createdAt: now,
         updatedAt: now,
