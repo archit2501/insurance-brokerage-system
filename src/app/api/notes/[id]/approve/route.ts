@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { notes, users } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { notes } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
-import { requireApprovalLevel } from '@/app/api/_lib/auth';
+import { requireApprovalLevel, getOrCreateLegacyUser } from '@/app/api/_lib/auth';
 
 export async function POST(
   request: NextRequest,
@@ -55,23 +55,16 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Look up user by email to get integer ID
+    // Get or create user in legacy table
     let authorizedBy: number | null = null;
     const userEmail = user.email;
-    console.log('DEBUG APPROVE - user email:', userEmail);
+    const userName = user.name || userEmail || 'Unknown User';
+    console.log('DEBUG APPROVE - user email:', userEmail, 'name:', userName);
 
     if (userEmail) {
-      const userResult = await db.select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, userEmail))
-        .limit(1);
-
-      if (userResult.length > 0) {
-        authorizedBy = userResult[0].id;
-        console.log('DEBUG APPROVE - Found user by email, authorizedBy set to:', authorizedBy);
-      } else {
-        console.log('DEBUG APPROVE - No user found with email:', userEmail);
-      }
+      // Get or create user in legacy table to ensure authorizedBy can be set
+      authorizedBy = await getOrCreateLegacyUser(userEmail, userName);
+      console.log('DEBUG APPROVE - authorizedBy set to:', authorizedBy);
     } else {
       console.log('DEBUG APPROVE - No email in user object');
     }

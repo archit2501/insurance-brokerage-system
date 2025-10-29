@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { notes, clients, insurers, policies, lobs, subLobs, bankAccounts, cnInsurerShares, users } from "@/db/schema";
+import { notes, clients, insurers, policies, lobs, subLobs, bankAccounts, cnInsurerShares, users, betterAuthUser } from "@/db/schema";
 import { eq } from "drizzle-orm";
 // @ts-ignore - pdfkit standalone doesn't have types but works in Node
 import PDFDocument from "pdfkit/js/pdfkit.standalone";
@@ -418,7 +418,7 @@ export async function GET(
 
     const { note, client, insurer, policy, lob, subLob, bankAccount } = result[0];
 
-    // Fetch user names separately
+    // Fetch user names from legacy users table OR Better Auth user table
     let preparedByName = null;
     let authorizedByName = null;
 
@@ -426,21 +426,70 @@ export async function GET(
     console.log('DEBUG PDF - preparedBy ID:', note.preparedBy);
     console.log('DEBUG PDF - authorizedBy ID:', note.authorizedBy);
 
-    if (note.preparedBy) {
-      const preparedUser = await db.select({ fullName: users.fullName })
+    // Helper function to fetch user name by integer ID or email
+    const getUserNameById = async (userId: number | null): Promise<string | null> => {
+      if (!userId) return null;
+
+      // Try legacy users table first
+      const legacyUser = await db.select({ fullName: users.fullName, email: users.email })
         .from(users)
-        .where(eq(users.id, note.preparedBy))
+        .where(eq(users.id, userId))
         .limit(1);
-      preparedByName = preparedUser[0]?.fullName || null;
+
+      if (legacyUser.length > 0) {
+        return legacyUser[0].fullName;
+      }
+
+      return null;
+    };
+
+    // Get all Better Auth users and create a mapping by email
+    const allBetterAuthUsers = await db.select()
+      .from(betterAuthUser);
+
+    const emailToNameMap = new Map<string, string>();
+    for (const u of allBetterAuthUsers) {
+      emailToNameMap.set(u.email, u.name);
+    }
+    console.log('DEBUG PDF - Found', allBetterAuthUsers.length, 'Better Auth users');
+
+    // Fetch preparedBy name
+    if (note.preparedBy) {
+      preparedByName = await getUserNameById(note.preparedBy);
+
+      // If not found in legacy users table, try to find by email in Better Auth
+      if (!preparedByName) {
+        // Get the email from legacy users table if it exists
+        const legacyUser = await db.select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, note.preparedBy))
+          .limit(1);
+
+        if (legacyUser.length > 0 && emailToNameMap.has(legacyUser[0].email)) {
+          preparedByName = emailToNameMap.get(legacyUser[0].email) || null;
+        }
+      }
+
       console.log('DEBUG PDF - preparedByName:', preparedByName);
     }
 
+    // Fetch authorizedBy name
     if (note.authorizedBy) {
-      const authorizedUser = await db.select({ fullName: users.fullName })
-        .from(users)
-        .where(eq(users.id, note.authorizedBy))
-        .limit(1);
-      authorizedByName = authorizedUser[0]?.fullName || null;
+      authorizedByName = await getUserNameById(note.authorizedBy);
+
+      // If not found in legacy users table, try to find by email in Better Auth
+      if (!authorizedByName) {
+        // Get the email from legacy users table if it exists
+        const legacyUser = await db.select({ email: users.email })
+          .from(users)
+          .where(eq(users.id, note.authorizedBy))
+          .limit(1);
+
+        if (legacyUser.length > 0 && emailToNameMap.has(legacyUser[0].email)) {
+          authorizedByName = emailToNameMap.get(legacyUser[0].email) || null;
+        }
+      }
+
       console.log('DEBUG PDF - authorizedByName:', authorizedByName);
     }
 

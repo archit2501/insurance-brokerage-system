@@ -1,5 +1,16 @@
 import { sqliteTable, integer, text, real, index } from 'drizzle-orm/sqlite-core';
 
+// Better Auth user table (managed by better-auth)
+export const betterAuthUser = sqliteTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: integer('emailVerified', { mode: 'boolean' }).notNull().default(false),
+  image: text('image'),
+  createdAt: text('createdAt').notNull(),
+  updatedAt: text('updatedAt').notNull(),
+});
+
 // Users table (minimal auth)
 export const users = sqliteTable('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),

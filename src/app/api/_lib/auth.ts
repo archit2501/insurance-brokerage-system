@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/lib/auth';
+import { db } from '@/db';
+import { users, betterAuthUser } from '@/db/schema';
+import { eq } from 'drizzle-orm';
 
 // Role definitions
 export const VALID_ROLES = {
@@ -99,6 +102,47 @@ export function safeParseUserId(userId: string): number | null {
     // Better-auth string ID, cannot convert
   }
   return null;
+}
+
+// Helper to sync Better Auth user to legacy users table
+// This ensures preparedBy/authorizedBy fields can be populated
+export async function getOrCreateLegacyUser(email: string, name: string): Promise<number | null> {
+  try {
+    // Check if user already exists in legacy table
+    const existingUser = await db.select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existingUser.length > 0) {
+      return existingUser[0].id;
+    }
+
+    // Create new user in legacy table
+    const now = new Date().toISOString();
+    const newUser = await db.insert(users)
+      .values({
+        fullName: name,
+        email: email,
+        phone: null,
+        role: 'Viewer', // Default role
+        approvalLevel: null,
+        tfaEnabled: false,
+        status: 'Active',
+        maxOverrideLimit: 0,
+        passwordHash: 'BETTER_AUTH_USER', // Placeholder - actual auth handled by Better Auth
+        createdAt: now,
+        updatedAt: now,
+        deletedAt: null,
+      })
+      .returning();
+
+    console.log('Created legacy user for Better Auth user:', email, '-> ID:', newUser[0].id);
+    return newUser[0].id;
+  } catch (error) {
+    console.error('Failed to sync user to legacy table:', error);
+    return null;
+  }
 }
 
 // Legacy token auth (deprecated - use authenticateRequest instead)
