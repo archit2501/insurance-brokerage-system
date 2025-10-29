@@ -4,7 +4,6 @@ import { notes, noteSequences, cnInsurerShares, clients, insurers, policies, use
 import { eq, like, and, or, desc, asc, sql, inArray } from 'drizzle-orm';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
-import { getOrCreateLegacyUser } from '@/app/api/_lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -393,16 +392,24 @@ export async function POST(request: NextRequest) {
 
       const noteId = `${noteType}/${currentYear}/${String(nextSeq).padStart(6, '0')}`;
 
-      // Get or create user in legacy table
+      // Look up user by email from session
       let preparedBy: number | null = null;
       const userEmail = session.user.email;
-      const userName = session.user.name || userEmail || 'Unknown User';
-      console.log('DEBUG CREATE NOTE - session email:', userEmail, 'name:', userName);
+      console.log('DEBUG CREATE NOTE - session email:', userEmail);
 
       if (userEmail) {
-        // Get or create user in legacy table to ensure preparedBy can be set
-        preparedBy = await getOrCreateLegacyUser(userEmail, userName);
-        console.log('DEBUG CREATE NOTE - preparedBy set to:', preparedBy);
+        // Look up the user by email to get the integer ID
+        const userResult = await db.select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, userEmail))
+          .limit(1);
+
+        if (userResult.length > 0) {
+          preparedBy = userResult[0].id;
+          console.log('DEBUG CREATE NOTE - Found user by email, preparedBy set to:', preparedBy);
+        } else {
+          console.log('DEBUG CREATE NOTE - No user found with email:', userEmail);
+        }
       } else {
         console.log('DEBUG CREATE NOTE - No email in session');
       }
